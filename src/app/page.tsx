@@ -168,7 +168,7 @@ export default function CouncilLogin() {
 
       {/* Footer */}
       <footer className="mt-8 text-white text-sm">
-        @ Cyb:Robotics Organization
+        @ Cyb Robotics Organization
       </footer>
     </div>
   );
