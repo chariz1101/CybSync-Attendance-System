@@ -57,6 +57,19 @@ ALLOWED_EMAIL_DOMAIN=<your school email domain>                # only these acco
 
 See `env.example` for details, and `docs/STUDENT_LOGIN_BACKEND_INTEGRATION.md` for how to create the Google client ID.
 
+### Creating Council Accounts
+
+There's no sign-up page for council members. Create accounts (or reset a password) from your computer:
+
+```bash
+npm run seed:admin
+```
+
+It asks for a username, display name, role (`council` or `admin`) and password, and saves the account with the password safely hashed. It uses `MONGODB_URI` from `.env.local`, so to create an account on the **live** site, put the production `MONGODB_URI` (the same one as in Vercel) in `.env.local` first.
+
+- Running it again with an existing username offers to **reset that account's password**.
+- Non-interactive use: `SEED_PASSWORD=... npm run seed:admin -- --username cictsc --name "CICT Student Council" --role council`
+
 ### Deploying to Vercel
 
 1. Push the repository to GitHub.
