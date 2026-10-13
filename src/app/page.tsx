@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function CouncilLogin() {
@@ -9,6 +10,7 @@ export default function CouncilLogin() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +28,7 @@ export default function CouncilLogin() {
         return;
       }
       // The session cookie is set by the server; go to the dashboard.
-      window.location.href = '/dashboard';
+      router.replace('/dashboard');
     } catch {
       setError('An error occurred. Please try again.');
     } finally {
@@ -35,7 +37,7 @@ export default function CouncilLogin() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0000FF] px-4 py-8">
+    <main className="min-h-screen flex flex-col items-center justify-center bg-[#0000FF] px-4 py-8">
       {/* Login Card */}
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 sm:p-10">
         {/* Icon */}
@@ -196,6 +198,6 @@ export default function CouncilLogin() {
       <footer className="mt-8 text-white text-sm">
         @ Cyb Robotics Organization
       </footer>
-    </div>
+    </main>
   );
 }

@@ -4,7 +4,7 @@ import { ReportAttachment } from "@/models/ReportAttachment";
 
 type Params = { params: Promise<{ attachmentId: string }> };
 
-// GET /api/reports/attachments/:id: the file itself (council/admin only, via the middleware).
+// GET /api/reports/attachments/:id: the file itself (council/admin only, via the proxy).
 // Only JPEG/PNG/WebP/PDF are ever stored (checked by content on upload), and
 // nosniff stops the browser from treating them as anything else.
 export async function GET(_: Request, { params }: Params) {

@@ -11,6 +11,10 @@ const EventSchema = new Schema(
     endDate: String,
     startTime: String,
     endTime: String,
+    // Afternoon session start, for events with separate AM/PM sign-ins.
+    pmStartTime: String,
+    // Sign-ins later than start time + grace minutes are marked late.
+    graceMinutes: { type: Number, default: 15, min: 0 },
     location: { type: String, trim: true },
     description: { type: String, trim: true },
     request: { type: Types.ObjectId, ref: "EventRequest" },

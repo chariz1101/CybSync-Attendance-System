@@ -6,6 +6,7 @@ import { Event } from "@/models/Event";
 import { Attendance } from "@/models/Attendance";
 import { scanSchema, toRecordJson } from "@/lib/attendance";
 import { isDuplicateKeyError } from "@/lib/apiAuth";
+import { attendanceStatus } from "@/lib/late";
 
 // POST /api/attendance/scan  { rfid, eventId, type: "AM"|"PM", action: "Sign In"|"Sign Out" }
 // `rfid` is the card number typed by the USB reader, or a Student ID typed by hand.
@@ -31,14 +32,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, message: `${student.name} is marked ${student.status}.` }, { status: 403 });
   }
 
+  const checkInTime = new Date();
   try {
     const attendance = await Attendance.create({
       student: student._id,
       event: event._id,
       type,
       action,
-      checkInTime: new Date(),
-      status: "on-time",
+      checkInTime,
+      status: attendanceStatus(event, type, action, checkInTime),
     });
     attendance.student = student;
     return NextResponse.json({ success: true, message: "Recorded", record: toRecordJson(attendance) });

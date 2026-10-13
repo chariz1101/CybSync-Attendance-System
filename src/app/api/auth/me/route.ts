@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { Student } from "@/models/Student";
 
-// Returns the logged-in user for the sidebars. The middleware has already
+// Returns the logged-in user for the sidebars. The proxy has already
 // verified the session and set x-user-id / x-user-role.
 export async function GET(req: Request) {
   const id = req.headers.get("x-user-id");

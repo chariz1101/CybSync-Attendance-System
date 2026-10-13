@@ -1,7 +1,7 @@
 import type { NextResponse } from "next/server";
 
 // The login token lives in an httpOnly cookie so page scripts can't read it,
-// and so the middleware can protect pages as well as API routes.
+// and so the proxy can protect pages as well as API routes.
 export const SESSION_COOKIE = "cybsync_session";
 
 const REMEMBER_ME_DAYS = 30;

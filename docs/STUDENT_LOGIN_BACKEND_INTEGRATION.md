@@ -84,6 +84,7 @@ The login token is set as the `cybsync_session` cookie (`HttpOnly`; 30 days with
 | 403 | Please sign in with your school Google account. | The Google account isn't in `ALLOWED_EMAIL_DOMAIN` (e.g. a personal Gmail) |
 | 401 | That Student ID doesn't match your Google account. | The ID doesn't exist **or** belongs to a different email. Both cases use the same message so the form can't be used to discover which IDs exist. |
 | 403 | Student account is inactive or suspended | `Student.status` isn't `active` |
+| 429 | Too many failed login attempts. Try again in N minutes. | 5 failures for this Student ID, or 20 from this IP, within 15 minutes |
 
 ## What the server checks
 

@@ -132,11 +132,12 @@ export default function StudentReports() {
               </Field>
 
               <div>
-                <span className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="report-files" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Attachments <span className="text-gray-500 font-normal">(optional, up to {MAX_FILES} photos or PDFs, 2 MB each)</span>
-                </span>
+                </label>
                 {files.length < MAX_FILES && (
                   <input
+                    id="report-files"
                     ref={fileInput}
                     type="file"
                     accept={ACCEPTED_FILES}

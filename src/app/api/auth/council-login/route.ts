@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { comparePassword, signToken } from "@/lib/auth";
 import { sessionExpiry, setSessionCookie } from "@/lib/session";
+import { checkLoginLimit, clearLoginFailures, loginLimitKeys, recordLoginFailure } from "@/lib/rateLimit";
 
 const schema = z.object({
   username: z.string().trim().min(1),
@@ -19,11 +20,17 @@ export async function POST(req: Request) {
   }
 
   await connectDB();
+  const limits = loginLimitKeys(req, "council", parsed.data.username);
+  const blocked = await checkLoginLimit([limits.account, limits.ip]);
+  if (blocked) return blocked;
+
   const user = await User.findOne({ username: parsed.data.username });
   const ok = user ? await comparePassword(parsed.data.password, user.passwordHash) : false;
   if (!user || !ok) {
+    await recordLoginFailure([limits.account, limits.ip]);
     return NextResponse.json({ success: false, message: "Incorrect username or password." }, { status: 401 });
   }
+  await clearLoginFailures(limits.account);
 
   const { rememberMe } = parsed.data;
   const token = signToken({ sub: user.id, role: user.role }, sessionExpiry(rememberMe));

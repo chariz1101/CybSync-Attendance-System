@@ -4,8 +4,8 @@ Cyb:Org Attendance System Project
 
 ## Tech Stack
 
-- **Next.js 15.5** - React framework with server-side rendering
-- **React 19** - UI library
+- **Next.js 16** - React framework with server-side rendering
+- **React 19.3** - UI library
 - **TypeScript** - Type-safe JavaScript
 - **Tailwind CSS 4** - Utility-first CSS framework
 - **ESLint** - Code linting
@@ -15,7 +15,7 @@ Cyb:Org Attendance System Project
 
 ### Prerequisites
 
-- Node.js 18.17 or later
+- Node.js 20.9 or later
 - npm or yarn or pnpm
 
 ### Installation
@@ -91,6 +91,21 @@ Council members import class lists (CSV) and link RFID cards on **Dashboard → 
 
 If the database is MongoDB Atlas, allow connections from Vercel under **Network Access** (for example `0.0.0.0/0`, since Vercel does not use fixed IPs on the Hobby plan).
 
+### Testing
+
+```bash
+npm test            # unit + API tests (Vitest, in-memory MongoDB)
+npm run typecheck   # TypeScript
+npm run lint        # ESLint
+```
+
+The tests need no `.env.local`: they start their own in-memory MongoDB (downloaded on the first run) and replace Google sign-in with a stub. GitHub Actions (`.github/workflows/ci.yml`) runs lint, typecheck, tests and the build on every pull request and on pushes to `main` and `develop-cybsync`.
+
+| Folder | What's tested |
+| --- | --- |
+| `tests/unit` | CSV parsing, student validation, late detection (time zones), formatting, attachment file types |
+| `tests/api` | The proxy's login/role rules, council + student login and rate limiting, events and approvals, scanning and stats, CSV import and card linking, reports and excuses |
+
 ### Linting
 
 ```bash
@@ -111,7 +126,7 @@ npm run lint
 │   ├── components/                   # Sidebars, charts, shared UI
 │   ├── lib/                          # Auth/session, validation, stats and formatting helpers
 │   ├── models/                       # Mongoose models (User, Student, Event, EventRequest, Attendance, Report, ReportAttachment)
-│   └── middleware.ts                 # Login + role checks for pages and API routes
+│   └── proxy.ts                      # Login + role checks for pages and API routes
 ├── scripts/                          # npm run seed:admin, npm run db:migrate
 ├── public/students-template.csv      # CSV template for importing students
 └── docs/                             # Guides and the task list (start with docs/README.md)

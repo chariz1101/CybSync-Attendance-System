@@ -40,7 +40,20 @@ After each scan, a green banner shows who was recorded, or a red one explains th
 
 The input box stays focused, so you can keep scanning without touching the mouse. **Export CSV** downloads the event's records.
 
-All scans are recorded as **On Time** for now. Marking late scans automatically is task 11 in `docs/README.md`.
+### On time or late
+
+A **Sign In** is marked **Late** when it happens after the session's start time plus the event's **grace period** (default **15 minutes**):
+
+| Session | Start time used | Example (grace 15) |
+| --- | --- | --- |
+| AM | the event's **Start time** | starts 7:00 AM → late after 7:15 AM |
+| PM | the event's **Afternoon start** (optional) | starts 1:00 PM → late after 1:15 PM |
+
+- **Sign Outs** are never late.
+- If a session has no start time, every scan counts as on time.
+- Admins set the afternoon start and grace period in **Events → New Event / Edit**. The scanner page shows when sign-ins start counting as late, and late scans get a yellow **LATE** banner.
+- Times are compared in the school's time zone, `SCHOOL_TIMEZONE` (default `Asia/Manila`), because Vercel's servers run on UTC.
+- Students can send an **excuse letter** for a late scan; accepting it changes the record to **Excused** (see `docs/REPORTS.md`).
 
 ## Statistics
 
@@ -59,7 +72,7 @@ All routes need a council or admin login unless noted.
 | Route | What it does |
 | --- | --- |
 | `GET /api/events?status=upcoming,active,past` | List events (default: all) |
-| `POST /api/events` | **Admin.** Create `{ name, date: "YYYY-MM-DD", startTime?: "HH:mm", endDate?, endTime?, location?, description? }` |
+| `POST /api/events` | **Admin.** Create `{ name, date: "YYYY-MM-DD", startTime?: "HH:mm", endDate?, endTime?, pmStartTime?, graceMinutes? (default 15), location?, description? }` |
 | `PATCH /api/events/:id` | `{ status: "active" }` start or reopen, `{ status: "past" }` end; any other fields edit the event (**admin**) |
 | `DELETE /api/events/:id` | **Admin.** Only if the event has no attendance |
 | `POST /api/events/request` | Submit a request `{ eventTitle, dateStart, timeStart?, dateEnd?, timeEnd?, location?, shortDescription? }` |
