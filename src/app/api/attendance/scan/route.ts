@@ -6,7 +6,7 @@ import { Event } from "@/models/Event";
 import { Attendance } from "@/models/Attendance";
 
 const schema = z.object({
-  rfid: z.string().min(1),
+  rfid: z.string().trim().min(1),
   eventId: z.string().min(1),
   type: z.string().optional(),
   action: z.string().optional(),
