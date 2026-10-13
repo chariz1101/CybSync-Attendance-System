@@ -46,8 +46,8 @@ export async function POST(req: Request) {
       timestamp: checkInTime.toISOString(),
       attendanceId: attendance.id,
     });
-  } catch (err: any) {
-    if (err.code === 11000)
+  } catch (err) {
+    if ((err as { code?: number }).code === 11000)
       return NextResponse.json({ success: false, message: "Duplicate entry", previousTimestamp: checkInTime.toISOString() }, { status: 409 });
     return NextResponse.json({ success: false, message: "Server error" }, { status: 500 });
   }

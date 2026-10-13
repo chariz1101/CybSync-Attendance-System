@@ -26,14 +26,17 @@ export async function GET(req: Request) {
       lateAttendanceRate: Math.round((lateCount / total) * 100),
       onTimeAttendanceRate: Math.round((onTimeCount / total) * 100),
     },
-    attendanceHistory: attendanceHistory.map((a) => ({
-      id: a.id,
-      type: a.type,
-      event: (a.event as any)?.name,
-      date: (a.event as any)?.date ? (a.event as any).date.toDateString() : "",
-      time: a.checkInTime.toTimeString().slice(0, 5),
-      status: a.status,
-    })),
+    attendanceHistory: attendanceHistory.map((a) => {
+      const event = a.event as unknown as { name?: string; date?: Date } | null;
+      return {
+        id: a.id,
+        type: a.type,
+        event: event?.name,
+        date: event?.date ? event.date.toDateString() : "",
+        time: a.checkInTime.toTimeString().slice(0, 5),
+        status: a.status,
+      };
+    }),
     upcomingEvents: upcomingEvents.map((e) => ({ id: e.id, name: e.name, date: e.date?.toDateString() || "" })),
   });
 }

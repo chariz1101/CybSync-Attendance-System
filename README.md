@@ -43,6 +43,25 @@ npm run build
 npm start
 ```
 
+### Environment Variables
+
+Create a `.env.local` file (it is git-ignored) for local development:
+
+```bash
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<db>
+JWT_SECRET=<long random string>
+TOKEN_EXPIRY=1d   # optional, defaults to 1d
+```
+
+### Deploying to Vercel
+
+1. Push the repository to GitHub.
+2. In Vercel, choose **Add New → Project** and import this repository. Vercel detects Next.js automatically; keep the default build settings.
+3. Under **Environment Variables**, add `MONGODB_URI` and `JWT_SECRET` (and `TOKEN_EXPIRY` if you want a different expiry).
+4. Click **Deploy**. Every push to the default branch redeploys production, and other branches get preview URLs.
+
+If the database is MongoDB Atlas, allow connections from Vercel under **Network Access** (for example `0.0.0.0/0`, since Vercel does not use fixed IPs on the Hobby plan).
+
 ### Linting
 
 ```bash

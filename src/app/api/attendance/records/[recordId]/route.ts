@@ -4,6 +4,8 @@ import { Attendance } from "@/models/Attendance";
 import { Student } from "@/models/Student";
 import { Event } from "@/models/Event";
 
+type PopulatedStudent = { name?: string; studentId?: string; course?: string; year?: string; section?: string };
+
 export async function GET(req: Request) {
   await connectDB();
   const { searchParams } = new URL(req.url);
@@ -13,17 +15,20 @@ export async function GET(req: Request) {
   const records = await Attendance.find({ event: eventId }).populate("student").populate("event").sort({ checkInTime: -1 });
   return NextResponse.json({
     event: await Event.findById(eventId),
-    records: records.map((r) => ({
-      id: r.id,
-      student: (r.student as any)?.name,
-      studentId: (r.student as any)?.studentId,
-      course: (r.student as any)?.course,
-      year: (r.student as any)?.year,
-      section: (r.student as any)?.section,
-      type: r.type,
-      action: r.action,
-      timestamp: r.checkInTime,
-      status: r.status,
-    })),
+    records: records.map((r) => {
+      const student = r.student as unknown as PopulatedStudent | null;
+      return {
+        id: r.id,
+        student: student?.name,
+        studentId: student?.studentId,
+        course: student?.course,
+        year: student?.year,
+        section: student?.section,
+        type: r.type,
+        action: r.action,
+        timestamp: r.checkInTime,
+        status: r.status,
+      };
+    }),
   });
 }

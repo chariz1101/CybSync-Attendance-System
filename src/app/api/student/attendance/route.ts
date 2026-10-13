@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     attendanceHistory: attendanceHistory.map((a) => ({
       id: a.id,
       type: a.type,
-      event: (a.event as any)?.name,
+      event: (a.event as unknown as { name?: string } | null)?.name,
       date: a.checkInTime.toDateString(),
       time: a.checkInTime.toTimeString().slice(0, 5),
       status: a.status,
