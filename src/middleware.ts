@@ -10,13 +10,24 @@ const PUBLIC_ROUTES = ["/api/auth/council-login", "/api/auth/student-login"];
 const STUDENT_ROLES = ["student"];
 const COUNCIL_ROLES = ["council", "admin"];
 
+// Identity headers the API routes trust. They must only ever come from a
+// verified token, never from the client.
+const IDENTITY_HEADERS = ["x-user-id", "x-user-role"];
+
+function withoutIdentityHeaders(req: NextRequest) {
+  const headers = new Headers(req.headers);
+  for (const name of IDENTITY_HEADERS) headers.delete(name);
+  return headers;
+}
+
 function allowedRoles(pathname: string) {
   return pathname === "/api/student" || pathname.startsWith("/api/student/") ? STUDENT_ROLES : COUNCIL_ROLES;
 }
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (PUBLIC_ROUTES.includes(pathname)) return NextResponse.next();
+  const headers = withoutIdentityHeaders(req);
+  if (PUBLIC_ROUTES.includes(pathname)) return NextResponse.next({ request: { headers } });
 
   const authHeader = req.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -38,7 +49,6 @@ export function middleware(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const headers = new Headers(req.headers);
   headers.set("x-user-id", payload.sub);
   headers.set("x-user-role", payload.role);
   return NextResponse.next({ request: { headers } });
