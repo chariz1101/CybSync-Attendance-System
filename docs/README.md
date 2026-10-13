@@ -2,6 +2,8 @@
 
 _Evaluated: October 13, 2026, on `main` at commit `14f1570` (Next.js 15.5.27)._
 
+_Last updated: October 13, 2026 (P0 task 1 done)._
+
 This document records the current state of the CybSync Attendance System and lists the work still needed, **from highest to lowest priority**. Each task says where the problem is and what "done" looks like, so it can be picked up as an issue or PR on its own.
 
 The other files in this folder (`*_BACKEND_INTEGRATION.md`) describe the API each page expects. This file is the overall to-do list.
@@ -16,7 +18,7 @@ The other files in this folder (`*_BACKEND_INTEGRATION.md`) describe the API eac
 | UI pages | ✅ All 10 pages are designed and render on desktop |
 | Backend API | ⚠️ 16 routes exist, but some are missing or incomplete |
 | Frontend ↔ backend | ❌ **Nothing is connected yet.** Every page shows hardcoded demo data, and every button only logs to the console or shows a "Demo mode" alert. |
-| Security | ❌ **Admin API routes are open to anyone**, and the student identity header can be forged |
+| Security | ⚠️ API routes now require login with the right role (task 1). Student login still needs a real credential (task 3). |
 | Mobile layout | ⚠️ Two dashboard pages scroll sideways on phones |
 | Tests | ❌ None |
 
@@ -24,9 +26,58 @@ The other files in this folder (`*_BACKEND_INTEGRATION.md`) describe the API eac
 
 ---
 
+## Progress checklist
+
+Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are in the sections below.
+
+**🔴 P0: Critical**
+- [x] 1. Protect the council/admin API routes
+- [ ] 2. Stop trusting a client-sent `x-user-id` header
+- [ ] 3. Decide how students prove who they are
+- [ ] 4. Create the first council account
+
+**🟠 P1: High**
+- [ ] 5. Connect the login pages and keep users logged in
+- [ ] 6. Connect the council pages to the API
+- [ ] 7. Connect the student pages and add the missing student report routes
+- [ ] 8. Add event management
+- [ ] 9. Fix the attendance records route
+- [ ] 10. Add student and RFID management
+
+**🟡 P2: Medium**
+- [ ] 11. Calculate "late" correctly
+- [ ] 12. Use the AM/PM and Sign In/Sign Out fields consistently
+- [ ] 13. Finish the dashboard statistics
+- [ ] 14. Validate IDs and handle errors in every route
+- [ ] 15. Record who submitted an event request
+- [ ] 16. Store report attachments
+- [ ] 17. Fix horizontal scrolling on phones
+- [ ] 18. Prevent brute-force attacks on login
+- [ ] 19. Add tests
+
+**🟢 P3: Low**
+- [ ] 20. Remove leftover demo code
+- [ ] 21. Clear lint warnings
+- [ ] 22. Remove duplicate mock rows
+- [ ] 23. Update the root README
+- [ ] 24. Plan the Next.js 16 upgrade
+- [ ] 25. Accessibility pass
+- [ ] 26. Make the notification bell work
+
+---
+
 ## 🔴 P0: Critical (fix before real students or council members use it)
 
-### 1. Protect the council/admin API routes
+### 1. Protect the council/admin API routes ✅ Done
+
+> **Status:** Done on `develop-cybsync`. `src/middleware.ts` now:
+> - lets only `/api/auth/council-login` and `/api/auth/student-login` through without a token;
+> - returns `401 Unauthorized` when the token is missing, invalid, expired, or has no `sub`/`role`;
+> - allows `/api/student/*` only for `role: "student"`, and every other `/api/*` route only for `role: "council"` or `"admin"`. Anything else gets `403 Forbidden`.
+>
+> **What this means for the frontend:** every API call except the two logins must send `Authorization: Bearer <token>`.
+>
+> _Original description:_
 
 `src/middleware.ts` only checks a token **when one is sent**. A request with no `Authorization` header goes straight through, so anyone on the internet can call these routes without logging in:
 
@@ -43,6 +94,8 @@ The other files in this folder (`*_BACKEND_INTEGRATION.md`) describe the API eac
 The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/student/check-in`) identify the student by the `x-user-id` header. The middleware sets this header after checking a token, but if no token is sent, it passes along whatever `x-user-id` the client wrote. Anyone can send `x-user-id: <someone's id>` to read that student's attendance or check them in.
 
 **Done when:** the middleware always deletes incoming `x-user-id` and `x-user-role` headers before (optionally) setting them from a verified token. Together with task 1, that is a small change in `src/middleware.ts`.
+
+> **Note:** task 1 already blocks the attack described here. Requests without a valid token are now rejected with `401`, and for valid tokens the middleware always overwrites `x-user-id` and `x-user-role` with the values from the token. Review and tick this task once someone confirms nothing else is needed.
 
 ### 3. Decide how students prove who they are
 
@@ -154,7 +207,7 @@ There are no tests. Start with the API routes (logins, middleware auth, scan, ch
 
 ## Suggested order of work
 
-1. **P0 tasks 1, 2 and 4.** These are small, contained changes, and the site shouldn't be shared until they're done.
+1. **P0 tasks ~~1~~, 2 and 4.** These are small, contained changes, and the site shouldn't be shared until they're done.
 2. **P0 task 3 and P1 task 5.** Decide how students log in, then connect both login flows and protect the pages.
 3. **P1 tasks 8 and 10.** Without events and students in the database, the rest of the app has no data to show.
 4. **P1 tasks 6, 7 and 9.** Connect the pages one at a time.
