@@ -4,10 +4,12 @@ import { connectDB } from "@/lib/db";
 import { Student } from "@/models/Student";
 import { signToken } from "@/lib/auth";
 import { GoogleAuthError, verifyGoogleSchoolAccount } from "@/lib/google";
+import { sessionExpiry, setSessionCookie } from "@/lib/session";
 
 const schema = z.object({
   studentId: z.string().trim().min(1),
   credential: z.string().min(1), // Google Sign-In ID token
+  rememberMe: z.boolean().optional().default(false),
 });
 
 // Same message whether the ID doesn't exist or belongs to someone else, so the
@@ -40,10 +42,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, message: "Student account is inactive or suspended" }, { status: 403 });
   }
 
-  const token = signToken({ sub: student.id, role: "student" });
-  return NextResponse.json({
+  const { rememberMe } = parsed.data;
+  const token = signToken({ sub: student.id, role: "student" }, sessionExpiry(rememberMe));
+  const res = NextResponse.json({
     success: true,
-    token,
     student: {
       id: student.id,
       studentId: student.studentId,
@@ -55,4 +57,6 @@ export async function POST(req: Request) {
     },
     message: "Login successful",
   });
+  setSessionCookie(res, token, rememberMe);
+  return res;
 }

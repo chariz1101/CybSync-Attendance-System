@@ -2,7 +2,7 @@
 
 _Evaluated: October 13, 2026, on `main` at commit `14f1570` (Next.js 15.5.27)._
 
-_Last updated: October 13, 2026 (P0 tasks 1, 2 and 3 done)._
+_Last updated: October 13, 2026 (all P0 tasks and P1 task 5 done)._
 
 This document records the current state of the CybSync Attendance System and lists the work still needed, **from highest to lowest priority**. Each task says where the problem is and what "done" looks like, so it can be picked up as an issue or PR on its own.
 
@@ -18,7 +18,7 @@ The other files in this folder (`*_BACKEND_INTEGRATION.md`) describe the API eac
 | UI pages | ✅ All 10 pages are designed and render on desktop |
 | Backend API | ⚠️ 16 routes exist, but some are missing or incomplete |
 | Frontend ↔ backend | ❌ **Nothing is connected yet.** Every page shows hardcoded demo data, and every button only logs to the console or shows a "Demo mode" alert. |
-| Security | ⚠️ API routes require login with the right role, and students sign in with their school Google account + Student ID. Council accounts can't be created yet (task 4). |
+| Security | ⚠️ API routes require login with the right role, and students sign in with their school Google account + Student ID. Council accounts are created with `npm run seed:admin` (task 4). |
 | Mobile layout | ⚠️ Two dashboard pages scroll sideways on phones |
 | Tests | ❌ None |
 
@@ -42,10 +42,10 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 - [x] 1. Protect the council/admin API routes
 - [x] 2. Stop trusting a client-sent `x-user-id` header
 - [x] 3. Decide how students prove who they are
-- [ ] 4. Create the first council account
+- [x] 4. Create the first council account
 
 **🟠 P1: High**
-- [ ] 5. Connect the login pages and keep users logged in
+- [x] 5. Connect the login pages and keep users logged in
 - [ ] 6. Connect the council pages to the API
 - [ ] 7. Connect the student pages and add the missing student report routes
 - [ ] 8. Add event management
@@ -83,7 +83,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 > - returns `401 Unauthorized` when the token is missing, invalid, expired, or has no `sub`/`role`;
 > - allows `/api/student/*` only for `role: "student"`, and every other `/api/*` route only for `role: "council"` or `"admin"`. Anything else gets `403 Forbidden`.
 >
-> **What this means for the frontend:** every API call except the two logins must send `Authorization: Bearer <token>`.
+> **What this means for the frontend:** since task 5, the login token is an `HttpOnly` cookie that the browser sends automatically, so pages just call `fetch('/api/...')`. (`Authorization: Bearer <token>` still works for non-browser clients.)
 >
 > _Original description:_
 
@@ -124,7 +124,11 @@ The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/s
 
 **Options:** add a password or PIN, send a one-time code to the student's school email (the `Student` model already has `email`), or use school Google sign-in. This is a product decision for the team.
 
-### 4. Create the first council account
+### 4. Create the first council account ✅ Done
+
+> **Status:** Done on `develop-cybsync`. Run `npm run seed:admin` (script: `scripts/seed-admin.ts`) to create a council/admin account or reset a password. See "Creating Council Accounts" in the root `README.md`.
+>
+> _Original description:_
 
 `/api/auth/council-login` checks the `User` collection, but there is no way to create a user. There's no sign-up page, admin page or seed script.
 
@@ -134,7 +138,16 @@ The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/s
 
 ## 🟠 P1: High (core features don't work without these)
 
-### 5. Connect the login pages and keep users logged in
+### 5. Connect the login pages and keep users logged in ✅ Done
+
+> **Status:** Done on `develop-cybsync`. Details are in `docs/BACKEND_INTEGRATION.md`.
+> - **Council login (`/`)** calls `/api/auth/council-login`, shows errors inline, and redirects to `/dashboard`.
+> - **Sessions use an `HttpOnly` cookie** (`cybsync_session`) set by both login routes. "Remember me" keeps it for 30 days; otherwise it lasts until the browser closes. The tokens are no longer returned in the JSON or stored in `localStorage`.
+> - **Pages are protected by the middleware:** `/dashboard/*` needs a council/admin login and `/student-dashboard/*` needs a student login, otherwise it redirects to the right login page. Logged-in users who open a login page go straight to their dashboard.
+> - **Sign out works** in both sidebars (`POST /api/auth/logout`).
+> - **Sidebars show the real logged-in user** via the new `GET /api/auth/me`.
+>
+> _Original description:_
 
 - **Council login (`src/app/page.tsx`):** `handleSubmit` only does `console.log`. Call `/api/auth/council-login`, store the token, and redirect to `/dashboard`. Show an error message on wrong credentials.
 - ~~**Student login (`src/app/student-login/page.tsx`)**~~: done as part of task 3 (Google sign-in + Student ID).
@@ -233,8 +246,8 @@ There are no tests. Start with the API routes (logins, middleware auth, RFID sca
 
 ## Suggested order of work
 
-1. **P0 tasks ~~1~~, ~~2~~ and 4.** These are small, contained changes, and the site shouldn't be shared until they're done.
-2. **~~P0 task 3~~ and P1 task 5.** Student login is done; connect council login and sign-out, and protect the pages.
+1. **~~P0 tasks 1, 2 and 4.~~** These are small, contained changes, and the site shouldn't be shared until they're done.
+2. **~~P0 task 3 and P1 task 5.~~**
 3. **P1 tasks 8 and 10.** Without events and students in the database, the rest of the app has no data to show.
 4. **P1 tasks 6, 7 and 9.** Connect the pages one at a time.
 5. P2, then P3.

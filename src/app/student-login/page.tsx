@@ -48,7 +48,7 @@ export default function StudentLogin() {
       const response = await fetch('/api/auth/student-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: id, credential }),
+        body: JSON.stringify({ studentId: id, credential, rememberMe: rememberMeRef.current }),
       });
       const data = await response.json();
 
@@ -57,9 +57,7 @@ export default function StudentLogin() {
         return;
       }
 
-      const storage = rememberMeRef.current ? localStorage : sessionStorage;
-      storage.setItem('studentToken', data.token);
-      storage.setItem('studentInfo', JSON.stringify(data.student));
+      // The session cookie is set by the server; go to the dashboard.
       window.location.href = '/student-dashboard';
     } catch {
       setError('An error occurred. Please try again.');

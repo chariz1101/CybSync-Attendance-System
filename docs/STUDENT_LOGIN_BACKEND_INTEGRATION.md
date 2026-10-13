@@ -27,8 +27,8 @@ Student                     Browser (student-login page)            Server (/api
    |                               |                                          | check email verified + school domain
    |                               |                                          | find Student by studentId
    |                               |                                          | student.email == Google email?
-   |                               | ◀──────────── { token, student } ──────── |
-   |                               | store token, go to /student-dashboard    |
+   |                               | ◀── { student } + session cookie ──────── |
+   |                               | go to /student-dashboard                 |
 ```
 
 Code:
@@ -50,7 +50,8 @@ Public route, so no `Authorization` header is needed.
 ```json
 {
   "studentId": "2023M1025",
-  "credential": "<Google ID token from Google Identity Services>"
+  "credential": "<Google ID token from Google Identity Services>",
+  "rememberMe": false
 }
 ```
 
@@ -59,7 +60,6 @@ Public route, so no `Authorization` header is needed.
 ```json
 {
   "success": true,
-  "token": "<CybSync JWT, role: student>",
   "student": {
     "id": "665f...",
     "studentId": "2023M1025",
@@ -73,7 +73,7 @@ Public route, so no `Authorization` header is needed.
 }
 ```
 
-The page stores `token` and `student` as `studentToken` / `studentInfo`. They go in `localStorage` if "Remember me" is ticked, otherwise in `sessionStorage`. All student API calls must send `Authorization: Bearer <token>`.
+The login token is set as the `cybsync_session` cookie (`HttpOnly`; 30 days with "Remember me", otherwise until the browser closes). Student pages just call the API with `fetch`, and the browser sends the cookie automatically. See "Sessions" in `BACKEND_INTEGRATION.md`.
 
 **Errors**
 

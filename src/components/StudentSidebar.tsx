@@ -3,17 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { signOut, useCurrentUser } from '@/lib/useCurrentUser';
 
-interface StudentSidebarProps {
-  studentName?: string;
-  studentId?: string;
-}
-
-export default function StudentSidebar({ 
-  studentName = "Zuriel Eliazar Calix", 
-  studentId = "2024M1025" 
-}: StudentSidebarProps) {
+export default function StudentSidebar() {
   const pathname = usePathname();
+  const user = useCurrentUser('/student-login');
+  const studentName = user?.name ?? '';
+  const studentId = user?.studentId ?? '';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -22,17 +18,7 @@ export default function StudentSidebar({
     { name: 'Reports', href: '/student-dashboard/reports', icon: WarningIcon },
   ];
 
-  const handleSignOut = () => {
-    // Backend integration point for logout
-    console.log('Signing out...');
-    // Clear tokens
-    localStorage.removeItem('studentToken');
-    localStorage.removeItem('studentInfo');
-    sessionStorage.removeItem('studentToken');
-    sessionStorage.removeItem('studentInfo');
-    // Redirect to student login
-    window.location.href = '/student-login';
-  };
+  const handleSignOut = () => signOut('/student-login');
 
   return (
     <>

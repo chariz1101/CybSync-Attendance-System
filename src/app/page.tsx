@@ -7,12 +7,31 @@ export default function CouncilLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Backend integration point
-    console.log('Login attempt:', { username, password, rememberMe });
-    // Add your API call here
+    setError('');
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/council-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, rememberMe }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.message || 'Login failed. Please try again.');
+        return;
+      }
+      // The session cookie is set by the server; go to the dashboard.
+      window.location.href = '/dashboard';
+    } catch {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -133,10 +152,17 @@ export default function CouncilLogin() {
             </label>
           </div>
 
+          {error && (
+            <p role="alert" className="text-sm text-red-600 text-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              {error}
+            </p>
+          )}
+
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg"
+            disabled={isLoading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-semibold py-3.5 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg"
           >
             <svg 
               className="w-5 h-5" 
@@ -151,7 +177,7 @@ export default function CouncilLogin() {
                 d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" 
               />
             </svg>
-            Sign In
+            {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 

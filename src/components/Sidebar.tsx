@@ -3,14 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { signOut, useCurrentUser } from '@/lib/useCurrentUser';
 
-interface SidebarProps {
-  userName?: string;
-  userRole?: string;
-}
-
-export default function Sidebar({ userName = "CICTSC", userRole = "Student Council Account" }: SidebarProps) {
+export default function Sidebar() {
   const pathname = usePathname();
+  const user = useCurrentUser('/');
+  const userName = user?.name ?? '';
+  const userRole = user ? (user.role === 'admin' ? 'Admin Account' : 'Student Council Account') : '';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -21,12 +20,7 @@ export default function Sidebar({ userName = "CICTSC", userRole = "Student Counc
     { name: 'Reports', href: '/dashboard/reports', icon: WarningIcon },
   ];
 
-  const handleSignOut = () => {
-    // Backend integration point for logout
-    console.log('Signing out...');
-    // Add your logout API call here
-    // Example: router.push('/');
-  };
+  const handleSignOut = () => signOut('/');
 
   return (
     <>
