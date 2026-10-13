@@ -91,6 +91,21 @@ Council members import class lists (CSV) and link RFID cards on **Dashboard → 
 
 If the database is MongoDB Atlas, allow connections from Vercel under **Network Access** (for example `0.0.0.0/0`, since Vercel does not use fixed IPs on the Hobby plan).
 
+### Testing
+
+```bash
+npm test            # unit + API tests (Vitest, in-memory MongoDB)
+npm run typecheck   # TypeScript
+npm run lint        # ESLint
+```
+
+The tests need no `.env.local`: they start their own in-memory MongoDB (downloaded on the first run) and replace Google sign-in with a stub. GitHub Actions (`.github/workflows/ci.yml`) runs lint, typecheck, tests and the build on every pull request and on pushes to `main` and `develop-cybsync`.
+
+| Folder | What's tested |
+| --- | --- |
+| `tests/unit` | CSV parsing, student validation, late detection (time zones), formatting, attachment file types |
+| `tests/api` | The proxy's login/role rules, council + student login and rate limiting, events and approvals, scanning and stats, CSV import and card linking, reports and excuses |
+
 ### Linting
 
 ```bash

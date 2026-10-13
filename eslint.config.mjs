@@ -5,6 +5,11 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // Tests read loosely-typed JSON responses.
+    files: ["tests/**"],
+    rules: { "@typescript-eslint/no-explicit-any": "off" },
+  },
   globalIgnores(["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"]),
 ]);
 

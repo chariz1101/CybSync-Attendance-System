@@ -2,7 +2,7 @@
 
 _Evaluated: October 13, 2026, on `main` at commit `14f1570` (Next.js 15.5.27)._
 
-_Last updated: October 13, 2026 (all P0 and P1 tasks done, plus several P2/P3 tasks along the way)._
+_Last updated: October 13, 2026 (**all tasks done**)._
 
 This document records the current state of the CybSync Attendance System and lists the work still needed, **from highest to lowest priority**. Each task says where the problem is and what "done" looks like, so it can be picked up as an issue or PR on its own.
 
@@ -28,9 +28,11 @@ This file is the overall to-do list. The other files in this folder are guides:
 | Frontend ↔ backend | ✅ No demo data left |
 | Security | ⚠️ API routes require login with the right role, and students sign in with their school Google account + Student ID. Council accounts are created with `npm run seed:admin` (task 4). |
 | Mobile layout | ✅ No page scrolls sideways at 390 px |
-| Tests | ❌ None |
+| Tests | ✅ 77 unit + API tests, run by GitHub Actions on every PR |
 
-**In short:** the site now works end to end: students are imported and get RFID cards, events are requested, approved, started and ended, attendance is scanned, and students send excuse letters that the council reviews. What's left is polish: late detection, login rate limiting, tests, and maintenance.
+**All 26 tasks are done.** New work can be added to this list as it comes up.
+
+**In short:** the site now works end to end: students are imported and get RFID cards, events are requested, approved, started and ended, attendance is scanned, and students send excuse letters that the council reviews. Late sign-ins are detected automatically, logins are rate-limited, every page passes an accessibility audit, and 77 automated tests run on every PR.
 
 ---
 
@@ -69,7 +71,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 - [x] 16. Store report attachments
 - [x] 17. Fix horizontal scrolling on phones
 - [x] 18. Prevent brute-force attacks on login
-- [ ] 19. Add tests
+- [x] 19. Add tests
 
 **🟢 P3: Low**
 - [x] 20. Remove leftover demo code
@@ -291,7 +293,11 @@ Tested at 390 px width (iPhone 14 size):
 > _Original description:_
 Add rate limiting to `/api/auth/council-login` and `/api/auth/student-login` (for example, a limit per IP using Vercel's firewall or a small in-database counter).
 
-### 19. Add tests
+### 19. Add tests ✅ Done
+
+> **Status:** Done. `npm test` runs 77 Vitest tests (unit tests in `tests/unit`, API tests in `tests/api` that call the route handlers and the proxy against an in-memory MongoDB). `.github/workflows/ci.yml` runs lint, typecheck, tests and build on every PR and on pushes to `main` / `develop-cybsync`. See "Testing" in the root README.
+
+> _Original description:_
 There are no tests. Start with the API routes (logins, middleware auth, RFID scan, student reports) using Vitest and an in-memory MongoDB, and run `npm run lint` and `npm run build` on every PR with GitHub Actions.
 
 ---
@@ -313,8 +319,8 @@ There are no tests. Start with the API routes (logins, middleware auth, RFID sca
 1. **~~P0 tasks 1, 2 and 4.~~** These are small, contained changes, and the site shouldn't be shared until they're done.
 2. **~~P0 task 3 and P1 task 5.~~**
 3. ~~**P1 tasks 6–10.**~~
-4. **Remaining P2:** 11 (late detection), 18 (login rate limiting), 19 (tests).
-5. **Remaining P3:** 23–25.
+4. ~~**P2:** 11, 18, 19.~~
+5. ~~**P3:** 23–25.~~
 
 ## Branch workflow
 
