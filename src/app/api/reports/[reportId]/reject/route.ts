@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Report } from "@/models/Report";
 
-type Params = { params: { reportId: string } };
+type Params = { params: Promise<{ reportId: string }> };
 
 export async function POST(req: Request, { params }: Params) {
+  const { reportId } = await params;
   await connectDB();
   const body = await req.json().catch(() => ({}));
   const updated = await Report.findByIdAndUpdate(
-    params.reportId,
+    reportId,
     { status: "rejected", response: body?.reason, updatedAt: new Date() },
     { new: true }
   );
