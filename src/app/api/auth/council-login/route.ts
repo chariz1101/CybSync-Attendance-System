@@ -31,6 +31,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, message: "Incorrect username or password." }, { status: 401 });
   }
   await clearLoginFailures(limits.account);
+  if (user.status === "disabled") {
+    return NextResponse.json({ success: false, message: "This account has been disabled. Contact the admin." }, { status: 403 });
+  }
 
   const { rememberMe } = parsed.data;
   const token = signToken({ sub: user.id, role: user.role }, sessionExpiry(rememberMe));

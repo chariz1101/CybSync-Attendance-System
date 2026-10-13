@@ -14,6 +14,8 @@ Students use reports to tell the council about their attendance. There are two k
 
 ## For the council (**Reports** page)
 
+Each organization sees reports about **its own events**; the admin sees all of them.
+
 **Pending** lists reports oldest first. Click one to read it and open attachments (they open full size in a new tab). Optionally write a reply to the student, then:
 
 - **Accept an excuse letter:** the student is marked **Excused** for that event:
@@ -38,9 +40,9 @@ The limits (3 files, 2 MB each, 4 MB in total) keep uploads under Vercel's 4.5 M
 | --- | --- | --- |
 | `GET /api/student/reports` | student | Their reports, plus events they can report about |
 | `POST /api/student/reports` | student | Multipart form: `type` (`excuse` \| `discrepancy`), `eventId`, `message`, `files` (0–3) |
-| `GET /api/reports` | council/admin | `{ pendingReports, previousReports }` |
-| `POST /api/reports/:id/accept` | council/admin | `{ response? }` |
-| `POST /api/reports/:id/reject` | council/admin | `{ reason? }` |
-| `GET /api/reports/attachments/:id` | council/admin | The file |
+| `GET /api/reports` | organization (own events) / admin | `{ pendingReports, previousReports }` |
+| `POST /api/reports/:id/accept` | organization (own events) / admin | `{ response? }` |
+| `POST /api/reports/:id/reject` | organization (own events) / admin | `{ reason? }` |
+| `GET /api/reports/attachments/:id` | organization (own events) / admin | The file |
 
 Student pages also use `GET /api/student/dashboard` (stats, 10 latest records, upcoming events) and `GET /api/student/attendance` (stats and full history).

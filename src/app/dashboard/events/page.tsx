@@ -103,6 +103,7 @@ export default function EventsPage() {
         </p>
         {e.description && <p className="text-sm text-gray-500 mt-1">{e.description}</p>}
         {lateNote(e) && <p className="text-xs text-gray-500 mt-1">{lateNote(e)}</p>}
+        {isAdmin && <p className="text-xs font-medium text-gray-700 mt-1">Run by {e.ownerName || 'admin'}</p>}
       </div>
       <div className="flex flex-wrap gap-2 shrink-0">
         {e.status === 'upcoming' && (
@@ -150,7 +151,11 @@ export default function EventsPage() {
       <main className="flex-1 lg:ml-64 min-w-0">
         <PageHeader
           title="Events"
-          subtitle="Start an event to scan attendance, and end it when it's over"
+          subtitle={
+            user && !isAdmin
+              ? `${user.name}'s events. Start one to scan attendance, and end it when it's over.`
+              : "Every organization's events. Approve requests in the Requests tab."
+          }
           actions={
             isAdmin && (
               <button onClick={() => setEditing('new')} className={`${primaryButton} w-full sm:w-auto`}>
@@ -170,7 +175,7 @@ export default function EventsPage() {
                   tab === t ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
               >
-                {t === 'events' ? 'Events' : 'Requests'}
+                {t === 'events' ? 'Events' : user && !isAdmin ? 'Your Requests' : 'Requests'}
                 {t === 'requests' && pendingCount > 0 && (
                   <span className="ml-2 inline-block text-xs bg-red-500 text-white rounded-full px-2 py-0.5">{pendingCount}</span>
                 )}
@@ -285,8 +290,17 @@ export default function EventsPage() {
   );
 }
 
+type OrgOption = { id: string; name: string; role: string; status: string };
+
 function EventFormModal({ event, onClose, onSaved }: { event: EventJson | null; onClose: () => void; onSaved: () => void }) {
+  const [orgs, setOrgs] = useState<OrgOption[]>([]);
+  useEffect(() => {
+    api<{ accounts: OrgOption[] }>('/api/accounts')
+      .then((d) => setOrgs(d.accounts.filter((a) => a.role === 'council' && a.status === 'active')))
+      .catch(() => {});
+  }, []);
   const [form, setForm] = useState({
+    ownerId: event?.ownerId ?? '',
     name: event?.name ?? '',
     date: event?.date ?? '',
     startTime: event?.startTime ?? '',
@@ -299,7 +313,7 @@ function EventFormModal({ event, onClose, onSaved }: { event: EventJson | null; 
   });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const submit = async (e: React.FormEvent) => {
@@ -344,6 +358,16 @@ function EventFormModal({ event, onClose, onSaved }: { event: EventJson | null; 
             <input type="number" min={0} max={240} value={form.graceMinutes} onChange={set('graceMinutes')} required className={inputClass} />
           </Field>
         </div>
+        <Field label="Run by" hint="The organization that starts the event and scans attendance">
+          <select value={form.ownerId} onChange={set('ownerId')} className={inputClass}>
+            <option value="">Admin (no organization)</option>
+            {orgs.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="Location">
           <input value={form.location} onChange={set('location')} className={inputClass} placeholder="e.g. University Gym" />
         </Field>

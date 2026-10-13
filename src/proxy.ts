@@ -19,6 +19,7 @@ const COUNCIL_LOGIN = "/";
 const COUNCIL_HOME = "/dashboard";
 const STUDENT_LOGIN = "/student-login";
 const STUDENT_HOME = "/student-dashboard";
+const ADMIN_PAGES = ["/dashboard/accounts"];
 
 // Identity headers the API routes trust. They must only ever come from a
 // verified token, never from the client.
@@ -81,6 +82,8 @@ function handlePage(req: NextRequest) {
 
   // Dashboards need the right kind of login.
   if (isUnder(pathname, COUNCIL_HOME) && !isCouncil) return redirect(COUNCIL_LOGIN);
+  // Admin-only pages send organization accounts back to their dashboard.
+  if (ADMIN_PAGES.some((p) => isUnder(pathname, p)) && session?.role !== "admin") return redirect(COUNCIL_HOME);
   if (isUnder(pathname, STUDENT_HOME) && !isStudent) return redirect(STUDENT_LOGIN);
 
   // Already logged in: skip the login page.

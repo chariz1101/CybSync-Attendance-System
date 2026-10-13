@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
+import { requireStaff } from "@/lib/staff";
 import { Student } from "@/models/Student";
 import { parseCsv } from "@/lib/csv";
 import { firstIssue, mapHeaders, rowToInput, studentInputSchema, type StudentInput } from "@/lib/students";
@@ -16,6 +17,8 @@ type ExistingStudent = StudentInput & { _id: unknown };
  * With dryRun=1 nothing is saved; the response shows what would happen.
  */
 export async function POST(req: Request) {
+  const staff = await requireStaff(req);
+  if (staff instanceof Response) return staff;
   const dryRun = new URL(req.url).searchParams.get("dryRun") === "1";
   const text = await req.text();
   if (!text.trim()) return NextResponse.json({ success: false, message: "The file is empty." }, { status: 400 });

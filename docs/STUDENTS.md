@@ -78,7 +78,7 @@ The attendance scanner (`POST /api/attendance/scan`) finds students by card numb
 
 ## API
 
-All routes need a council/admin login.
+All routes need an admin or organization login. The student list is shared by every organization.
 
 | Route | What it does |
 | --- | --- |

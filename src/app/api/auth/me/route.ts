@@ -26,6 +26,6 @@ export async function GET(req: Request) {
   }
 
   const user = await User.findById(id);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  return NextResponse.json({ role: user.role, name: user.name, username: user.username });
+  if (!user || user.status === "disabled") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return NextResponse.json({ id: user.id, role: user.role, name: user.name, username: user.username });
 }

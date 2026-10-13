@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isValidObjectId } from "mongoose";
 import { connectDB } from "@/lib/db";
+import { requireStaff } from "@/lib/staff";
 import { Student } from "@/models/Student";
 import { firstIssue, studentUpdateSchema, toStudentJson } from "@/lib/students";
 
@@ -8,6 +9,8 @@ type Params = { params: Promise<{ studentId: string }> };
 
 // PATCH /api/students/:id: edit a student, link a card (rfid: "123...") or unlink it (rfid: "")
 export async function PATCH(req: Request, { params }: Params) {
+  const staff = await requireStaff(req);
+  if (staff instanceof Response) return staff;
   const { studentId: id } = await params;
   if (!isValidObjectId(id)) return NextResponse.json({ success: false, message: "Student not found" }, { status: 404 });
 

@@ -80,7 +80,8 @@ There's no need to send an `Authorization` header or read anything from `localSt
 
 | Path | Requires | Otherwise |
 | --- | --- | --- |
-| `/dashboard/*` | council or admin session | redirect to `/` |
+| `/dashboard/*` | admin or organization session | redirect to `/` |
+| `/dashboard/accounts` | admin session | organizations are redirected to `/dashboard` |
 | `/student-dashboard/*` | student session | redirect to `/student-login` |
 | `/` (council login) | — | council/admin already logged in → redirect to `/dashboard` |
 | `/student-login` | — | student already logged in → redirect to `/student-dashboard` |
@@ -92,9 +93,15 @@ There's no need to send an `Authorization` header or read anything from `localSt
 | `/api/auth/council-login`, `/api/auth/student-login`, `/api/auth/logout` | nothing (public) |
 | `/api/auth/me` | any valid session |
 | `/api/student/*` | student session |
-| every other `/api/*` | council or admin session |
+| every other `/api/*` | admin or organization session (`role: "council"`) |
 
-A missing or invalid session gets `401`, and the wrong role gets `403`. For allowed requests, the proxy sets `x-user-id` and `x-user-role` from the verified token (and always strips any the client sent), so API routes can trust them.
+A missing or invalid session gets `401`, and the wrong role gets `403`.
+
+**Inside the routes**, `requireStaff()` (`src/lib/staff.ts`) loads the account from the database on every staff request, so a **disabled or deleted account is refused immediately** (`401`), even though its session cookie hasn't expired. Pages that get a `401` end the session and return to the login page. The same helper limits organizations to their own events (`eventFilterFor`, `canUseEvent`) and marks admin-only actions (`{ adminOnly: true }`).
+
+| Route | Who |
+| --- | --- |
+| `GET/POST /api/accounts`, `PATCH /api/accounts/:id` | Admin: list, create, rename, reset password, disable/enable, change role (`{ name?, password?, status?, role? }`). Admins can't disable or demote themselves. | For allowed requests, the proxy sets `x-user-id` and `x-user-role` from the verified token (and always strips any the client sent), so API routes can trust them.
 
 ## Security notes
 

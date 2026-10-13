@@ -57,18 +57,24 @@ ALLOWED_EMAIL_DOMAIN=<your school email domain>                # only these acco
 
 See `env.example` for details, and `docs/STUDENT_LOGIN_BACKEND_INTEGRATION.md` for how to create the Google client ID.
 
-### Creating Council Accounts
+### Accounts: admin and organizations
 
-There's no sign-up page for council members. Create accounts (or reset a password) from your computer:
+There are two kinds of staff accounts:
+
+| Account | Can do |
+| --- | --- |
+| **Admin** (the "mother" account) | Everything: approves or rejects event requests, creates and assigns events, manages organization accounts on **Accounts**, and sees every organization's events, attendance and reports |
+| **Organization** (an org or student council) | Requests events; once approved, starts/ends them, scans attendance, and reviews student reports, **for its own events only**. Shares the student list with everyone. |
+
+**Create the first admin** from your computer (there's no sign-up page). With the production `MONGODB_URI` (the same one as in Vercel) in `.env.local`:
 
 ```bash
 npm run seed:admin
 ```
 
-It asks for a username, display name, role (`council` or `admin`) and password, and saves the account with the password safely hashed. It uses `MONGODB_URI` from `.env.local`, so to create an account on the **live** site, put the production `MONGODB_URI` (the same one as in Vercel) in `.env.local` first.
+It asks for a username, name, role (choose `admin`) and password. Running it again with an existing username offers to **reset that account's password**, which is useful if the admin password is ever lost.
 
-- Running it again with an existing username offers to **reset that account's password**.
-- Non-interactive use: `SEED_PASSWORD=... npm run seed:admin -- --username cictsc --name "CICT Student Council" --role council`
+**Then create organization accounts in the website:** log in as the admin, open **Accounts → New Account**, and share each organization's username and password with them privately. The admin can rename organizations, reset their passwords, and disable an account, which locks it out immediately.
 
 ### Database Upgrades
 
@@ -117,7 +123,7 @@ npm run lint
 ```
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx                  # Council login (/)
+│   │   ├── page.tsx                  # Admin / organization login (/)
 │   │   ├── student-login/            # Student login (Google + Student ID)
 │   │   ├── dashboard/                # Council pages: dashboard, events, attendance (scanner),
 │   │   │                             #   students, request, past-events, reports

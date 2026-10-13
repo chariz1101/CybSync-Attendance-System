@@ -4,7 +4,8 @@ import Sidebar from '@/components/Sidebar';
 import Link from 'next/link';
 import { useState } from 'react';
 import { api } from '@/lib/api';
-import { ErrorText, PageHeader, SuccessText } from '@/components/ui';
+import { Card, EmptyState, ErrorText, PageHeader, SuccessText } from '@/components/ui';
+import { useCurrentUser } from '@/lib/useCurrentUser';
 
 // Types for backend integration
 interface EventRequest {
@@ -29,6 +30,7 @@ export default function Request() {
     shortDescription: '',
   });
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const user = useCurrentUser('/');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<EventRequest>>({});
@@ -114,15 +116,30 @@ export default function Request() {
       <main className="flex-1 lg:ml-64">
         <PageHeader title="Request Event" />
 
+        {/* Admins approve requests instead of making them */}
+        {user?.role === 'admin' && (
+          <div className="p-4 sm:p-8">
+            <Card>
+              <EmptyState title="Organizations request events here">
+                As the admin, you approve or reject their requests on{' '}
+                <Link href="/dashboard/events" className="text-blue-600 font-semibold hover:underline">
+                  Events → Requests
+                </Link>
+                , and can create events directly with <b>New Event</b>.
+              </EmptyState>
+            </Card>
+          </div>
+        )}
+
         {/* Content */}
-        <div className="p-4 sm:p-8">
+        <div className={`p-4 sm:p-8 ${user?.role === 'admin' ? 'hidden' : ''}`}>
           {/* Event Request Form */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 max-w-8xl mx-auto">
             {/* Form Header */}
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Event Request Form</h2>
               <p className="text-gray-600">
-                This form is used to request an event to be added to your Dashboard
+                Ask the admin to add an event for your organization. Once approved, it appears on your Events page.
               </p>
             </div>
 

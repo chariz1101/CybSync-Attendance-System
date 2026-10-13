@@ -18,6 +18,9 @@ beforeAll(async () => {
   council = await makeUser("council1", "council");
 });
 
+// Events run by the council1 organization.
+const ownEvent = (fields: Record<string, unknown> = {}) => makeEvent({ owner: { userId: council.id, name: "council1 name" }, ...fields });
+
 // Only Date is faked, so MongoDB's own timers keep working.
 const atManila = (time: string) => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -49,7 +52,7 @@ describe("events and requests", () => {
       await requestEvent(req("/api/events/request", { json: { eventTitle: "Hackathon", dateStart: "2026-11-28", timeStart: "08:00", location: "Lab 3" }, as: council }))
     );
     const id = submitted.requestId;
-    const { body: list } = await json(await listRequests());
+    const { body: list } = await json(await listRequests(req("", { as: council })));
     expect(list.requests.find((r: any) => r.id === id)).toMatchObject({ status: "pending", requestedBy: "council1 name" });
 
     expect((await reviewRequest(req("", { json: { action: "approve" }, as: council }), params({ requestId: id }))).status).toBe(403);
@@ -61,7 +64,7 @@ describe("events and requests", () => {
   });
 
   it("only allows upcoming → active → past (→ active again)", async () => {
-    const event = await makeEvent({ status: "upcoming" });
+    const event = await ownEvent({ status: "upcoming" });
     const set = (status: string) => patchEvent(req("", { method: "PATCH", json: { status }, as: council }), params({ eventId: event.id }));
     expect((await set("past")).status).toBe(400);
     expect((await json(await set("active"))).body.event.startedAt).toBeTruthy();
@@ -70,14 +73,14 @@ describe("events and requests", () => {
   });
 
   it("can't delete an event that has attendance", async () => {
-    const event = await makeEvent();
+    const event = await ownEvent();
     const { student } = await makeStudent({ rfid: "CARD-DEL" });
     await scan(req("", { json: { rfid: student.rfid, eventId: event.id }, as: council }));
     expect((await deleteEvent(req("", { method: "DELETE", as: admin }), params({ eventId: event.id }))).status).toBe(409);
   });
 
   it("lists events by status", async () => {
-    const { body } = await json(await listEvents(req("/api/events?status=upcoming")));
+    const { body } = await json(await listEvents(req("/api/events?status=upcoming", { as: admin })));
     expect(body.events.every((e: any) => e.status === "upcoming")).toBe(true);
   });
 });
@@ -87,7 +90,7 @@ describe("scanning", () => {
     scan(req("/api/attendance/scan", { json: { rfid, eventId, type, action }, as: council }));
 
   it("records by card or Student ID and refuses duplicates", async () => {
-    const event = await makeEvent();
+    const event = await ownEvent();
     const { student } = await makeStudent({ rfid: "CARD-1", name: "Juan" });
     atManila("06:55");
     const first = await json(await scanAs(" CARD-1 ", event.id));
@@ -98,7 +101,7 @@ describe("scanning", () => {
   });
 
   it("marks sign-ins after start + grace as late (school time)", async () => {
-    const event = await makeEvent({ startTime: "07:00", pmStartTime: "13:00", graceMinutes: 10 });
+    const event = await ownEvent({ startTime: "07:00", pmStartTime: "13:00", graceMinutes: 10 });
     const a = await makeStudent({ rfid: "LATE-A" });
     const b = await makeStudent({ rfid: "LATE-B" });
     atManila("07:10");
@@ -112,8 +115,8 @@ describe("scanning", () => {
   });
 
   it("explains every refusal", async () => {
-    const running = await makeEvent();
-    const upcoming = await makeEvent({ status: "upcoming" });
+    const running = await ownEvent();
+    const upcoming = await ownEvent({ status: "upcoming" });
     await makeStudent({ rfid: "CARD-INACTIVE", status: "inactive" });
     await makeStudent({ rfid: "CARD-OK" });
     expect((await scanAs("NOPE", running.id)).status).toBe(404);
@@ -126,7 +129,7 @@ describe("scanning", () => {
 
 describe("statistics", () => {
   it("counts attended students per event, by course and year", async () => {
-    const event = await makeEvent({ name: "Stats Day" });
+    const event = await ownEvent({ name: "Stats Day" });
     const cs3 = await makeStudent({ course: "BSCS", year: "3", rfid: "S1" });
     const it2 = await makeStudent({ course: "BSIT", year: "2", rfid: "S2" });
     await makeStudent({ course: "BSIS", year: "4" }); // didn't come
@@ -134,23 +137,23 @@ describe("statistics", () => {
     for (const s of [cs3, it2]) await scan(req("", { json: { rfid: s.student.rfid, eventId: event.id }, as: council }));
     await scan(req("", { json: { rfid: "S1", eventId: event.id, action: "Sign Out" }, as: council })); // a second scan isn't a second person
 
-    const { body } = await json(await records(req(`/api/attendance/records?eventId=${event.id}`)));
+    const { body } = await json(await records(req(`/api/attendance/records?eventId=${event.id}`, { as: council })));
     expect(body.records).toHaveLength(3);
     expect(body.stats.totalStudentsAttended).toBe(2);
     expect(body.stats.attendanceRate).toBe(Math.round((2 / body.stats.totalDepartmentStudents) * 100));
     expect(body.courseDistribution.map((c: any) => [c.course, c.value])).toEqual([["BSCS", 1], ["BSIT", 1]]);
     expect(body.yearCourseDistribution.map((y: any) => y.year)).toEqual(["2nd", "3rd"]);
 
-    expect((await records(req("/api/attendance/records?eventId=bad"))).status).toBe(400);
+    expect((await records(req("/api/attendance/records?eventId=bad", { as: council }))).status).toBe(400);
   });
 
   it("shows the running event on the dashboard, and ended events in Past Events", async () => {
-    const { body } = await json(await dashboard());
+    const { body } = await json(await dashboard(req("", { as: council })));
     expect(body.event.status).toBe("active");
     expect(body.stats).toBeTruthy();
 
-    const ended = await makeEvent({ name: "Ended One", status: "past", date: "2026-10-01" });
-    const { body: past } = await json(await pastEvents());
+    const ended = await ownEvent({ name: "Ended One", status: "past", date: "2026-10-01" });
+    const { body: past } = await json(await pastEvents(req("", { as: council })));
     expect(past.events.find((e: any) => e.id === ended.id)).toMatchObject({ name: "Ended One", stats: { totalStudentsAttended: 0 } });
   });
 });

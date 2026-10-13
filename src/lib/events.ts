@@ -15,6 +15,8 @@ export const eventInputSchema = z
     graceMinutes: z.coerce.number().int().min(0, "Grace period can't be negative").max(240, "Grace period is too long").optional(),
     location: z.string().trim().optional(),
     description: z.string().trim().optional(),
+    // Admin only: the organization account that will run the event ("" = admin runs it).
+    ownerId: z.string().optional(),
   })
   .refine(
     (e) => !e.endDate || `${e.endDate}T${e.endTime || "23:59"}` > `${e.date}T${e.startTime || "00:00"}`,
@@ -36,6 +38,7 @@ type EventDoc = {
   startedAt?: Date;
   endedAt?: Date;
   createdBy?: { name?: string };
+  owner?: { userId?: string; name?: string } | null;
 };
 
 export function toEventJson(e: EventDoc) {
@@ -54,6 +57,8 @@ export function toEventJson(e: EventDoc) {
     startedAt: e.startedAt?.toISOString() ?? null,
     endedAt: e.endedAt?.toISOString() ?? null,
     createdBy: e.createdBy?.name ?? "",
+    ownerId: e.owner?.userId ?? null,
+    ownerName: e.owner?.name ?? "",
   };
 }
 
