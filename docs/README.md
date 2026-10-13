@@ -77,7 +77,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 - [x] 22. Remove duplicate mock rows
 - [x] 23. Update the root README
 - [ ] 24. Plan the Next.js 16 upgrade
-- [ ] 25. Accessibility pass
+- [x] 25. Accessibility pass
 - [x] 26. Make the notification bell work
 
 ---
@@ -303,7 +303,7 @@ There are no tests. Start with the API routes (logins, middleware auth, RFID sca
 22. ✅ **Remove duplicate mock rows** _(Done: the mock data was removed.)_ in `src/app/dashboard/attendance/page.tsx` (record `id: '2'` repeats `year`, `section` and `timestamp`).
 23. ✅ **Update the root README.** _(Done: structure, docs and features sections rewritten.)_ Its project-structure section is out of date: it lists `tailwind.config.ts` and docs files at the root, and it's missing the student pages, `src/app/api`, `src/models` and `src/lib`. "Backend API Integration" is listed as not started, but the API exists.
 24. **Plan the Next.js 16 upgrade.** `npm audit` still reports a `postcss` advisory inside Next.js 15 that is only fixed in Next 16. It only affects the build, not the running site, but Next 16 also renames `middleware.ts` to `proxy.ts`, so plan the upgrade as one task.
-25. **Accessibility pass.** Check color contrast on the bright blue (`#0000FF`) login background, add labels to icon-only buttons (menu, notifications), and make sure the RFID input works with a keyboard and screen readers.
+25. ✅ **Accessibility pass.** _(Done: an axe-core audit (WCAG 2.1 A/AA + best practices) of all 12 pages at desktop and phone width reports 0 violations. Fixed: labels on the mobile menu buttons and the report file picker, a `main` landmark on the login pages, a hidden header for the students table's actions column, and dialogs now move keyboard focus in and back out. Color contrast, including the blue login background, passes.)_ Check color contrast on the bright blue (`#0000FF`) login background, add labels to icon-only buttons (menu, notifications), and make sure the RFID input works with a keyboard and screen readers.
 26. ✅ **Make the notification bell work.** _(Done by removing it: it had no function. Pending counts now show as badges on the Events → Requests and Reports tabs.)_ The bell on the dashboard header has no function yet. Connect it to new reports or event-request updates, or remove it.
 
 ---

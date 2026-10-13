@@ -164,7 +164,9 @@ export default function StudentsPage() {
                         <th className="px-6 py-3 font-semibold">Course · Year - Section</th>
                         <th className="px-6 py-3 font-semibold">Email</th>
                         <th className="px-6 py-3 font-semibold">RFID Card</th>
-                        <th className="px-6 py-3" />
+                        <th className="px-6 py-3">
+                          <span className="sr-only">Actions</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>

@@ -79,7 +79,7 @@ export default function StudentLogin() {
   }, [googleReady, handleGoogleCredential]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0000FF] px-4 py-8">
+    <main className="min-h-screen flex flex-col items-center justify-center bg-[#0000FF] px-4 py-8">
       {/* Login Card */}
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 sm:p-10">
         {/* Icon */}
@@ -204,7 +204,7 @@ export default function StudentLogin() {
       <footer className="mt-8 text-white text-sm">
         @ Cyb:Robotics Organization
       </footer>
-    </div>
+    </main>
   );
 }
 
