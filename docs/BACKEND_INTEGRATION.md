@@ -1,196 +1,100 @@
-# Backend Integration Guide - Council Login
+# Council Login and Sessions
 
-## Overview
+This guide covers how council members log in, how sessions work for **both** council and student accounts, and how pages and API routes are protected. Student sign-in (Google + Student ID) is described in `STUDENT_LOGIN_BACKEND_INTEGRATION.md`.
 
-The Council Login page is located at `src/app/page.tsx` and is ready for backend integration.
+## Council login
 
-## Form Data Structure
+| Part | File |
+| --- | --- |
+| Login page | `src/app/page.tsx` (`/`) |
+| Login API | `src/app/api/auth/council-login/route.ts` |
+| Account model | `src/models/User.ts` (`username`, `passwordHash`, `name`, `role: "council" \| "admin"`) |
+| Create accounts / reset passwords | `npm run seed:admin` (`scripts/seed-admin.ts`), see the root `README.md` |
 
-The login form collects the following data:
+### `POST /api/auth/council-login`
 
-```typescript
-{
-  username: string,    // User's council username
-  password: string,    // User's password
-  rememberMe: boolean  // Remember me checkbox state
-}
-```
+Public route.
 
-## Integration Points
-
-### 1. Form Submission Handler
-
-Located at **line 11-16** in `src/app/page.tsx`:
-
-```typescript
-const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  // Backend integration point
-  console.log("Login attempt:", { username, password, rememberMe });
-  // Add your API call here
-};
-```
-
-### 2. Example API Integration
-
-Replace the `handleSubmit` function with your API call:
-
-```typescript
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-
-  try {
-    const response = await fetch("/api/auth/council-login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username,
-        password,
-        rememberMe,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      // Success - redirect to dashboard
-      window.location.href = "/council/dashboard";
-    } else {
-      // Handle error - show error message
-      alert(data.message || "Login failed");
-    }
-  } catch (error) {
-    console.error("Login error:", error);
-    alert("An error occurred. Please try again.");
-  }
-};
-```
-
-### 3. State Management
-
-Current state variables (lines 7-9):
-
-```typescript
-const [username, setUsername] = useState(""); // Username input
-const [password, setPassword] = useState(""); // Password input
-const [rememberMe, setRememberMe] = useState(false); // Remember me checkbox
-```
-
-### 4. Adding Loading State
-
-To add a loading indicator during login:
-
-```typescript
-const [isLoading, setIsLoading] = useState(false);
-
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsLoading(true);
-
-  try {
-    // Your API call here
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-// Update button to show loading state:
-<button
-  type="submit"
-  disabled={isLoading}
-  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3.5 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg"
->
-  {isLoading ? "Signing In..." : "Sign In"}
-</button>;
-```
-
-### 5. Error Handling
-
-To display errors in the UI:
-
-```typescript
-const [error, setError] = useState("");
-
-// Add error display above the form:
-{
-  error && (
-    <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-      {error}
-    </div>
-  );
-}
-```
-
-## API Endpoint Recommendations
-
-### POST `/api/auth/council-login`
-
-**Request Body:**
+**Request body**
 
 ```json
-{
-  "username": "string",
-  "password": "string",
-  "rememberMe": boolean
-}
+{ "username": "cictsc", "password": "••••••••", "rememberMe": false }
 ```
 
-**Success Response (200):**
+**Success (200)**: sets the session cookie (see below) and returns:
 
 ```json
 {
   "success": true,
-  "token": "jwt-token-here",
-  "user": {
-    "id": "user-id",
-    "username": "username",
-    "role": "council",
-    "name": "Full Name"
-  }
+  "user": { "id": "665f...", "username": "cictsc", "role": "council", "name": "CICT Student Council" },
+  "message": "Login successful"
 }
 ```
 
-**Error Response (401):**
+The page then redirects to `/dashboard`.
 
-```json
-{
-  "success": false,
-  "message": "Invalid username or password"
-}
+**Errors**
+
+| Status | Message |
+| --- | --- |
+| 400 | Username and password are required. |
+| 401 | Incorrect username or password. (Same message for an unknown username and a wrong password.) |
+
+Passwords are stored as bcrypt hashes and never returned.
+
+## Sessions
+
+Both login routes (council and student) put the login token in a cookie:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| Name | `cybsync_session` | |
+| `HttpOnly` | yes | Page scripts can't read it, so an XSS bug can't steal it |
+| `Secure` | yes in production | Only sent over HTTPS |
+| `SameSite` | `Lax` | Not sent on cross-site POSTs, which blocks CSRF |
+| Lifetime | Browser session, or **30 days** with "Remember me" | Without "Remember me" the token also expires after `TOKEN_EXPIRY` (default `1d`) |
+
+**Frontend code doesn't handle tokens.** The browser sends the cookie automatically with every same-site `fetch`, so pages just call the API:
+
+```ts
+const res = await fetch('/api/dashboard');
 ```
 
-## Student Login Link
+There's no need to send an `Authorization` header or read anything from `localStorage`/`sessionStorage`. (The middleware still accepts `Authorization: Bearer <token>` for non-browser clients, e.g. a future RFID device.)
 
-The "Student? Login Here" link currently points to `/student-login`. Create a similar page for student authentication.
+### Other auth routes
 
-## Security Recommendations
+| Route | Who | What it does |
+| --- | --- | --- |
+| `POST /api/auth/logout` | anyone | Clears the session cookie |
+| `GET /api/auth/me` | any logged-in user | Returns the current user: `{ role, name, username }` for council/admin, or `{ role: "student", name, studentId, course, year, section, email }` |
 
-1. **HTTPS Only**: Always use HTTPS in production
-2. **CSRF Protection**: Implement CSRF tokens
-3. **Rate Limiting**: Limit login attempts per IP
-4. **Password Requirements**: Enforce strong passwords
-5. **Session Management**: Implement secure session handling
-6. **Token Storage**: Store JWT in httpOnly cookies or secure localStorage
+`src/lib/useCurrentUser.ts` wraps these for pages: `useCurrentUser(loginPath)` loads the current user (and redirects to `loginPath` if the session has expired), and `signOut(loginPath)` logs out. Both sidebars use them.
 
-## Next Steps for Backend Team
+## What's protected (`src/middleware.ts`)
 
-1. Create API endpoint `/api/auth/council-login`
-2. Implement authentication logic
-3. Set up JWT token generation
-4. Configure session management
-5. Create protected routes for council dashboard
-6. Implement logout functionality
-7. Add password reset functionality (if needed)
+**Pages**
 
-## Testing
+| Path | Requires | Otherwise |
+| --- | --- | --- |
+| `/dashboard/*` | council or admin session | redirect to `/` |
+| `/student-dashboard/*` | student session | redirect to `/student-login` |
+| `/` (council login) | — | council/admin already logged in → redirect to `/dashboard` |
+| `/student-login` | — | student already logged in → redirect to `/student-dashboard` |
 
-Test the form with these scenarios:
+**API routes**
 
-- ✅ Valid credentials
-- ❌ Invalid username
-- ❌ Invalid password
-- ❌ Empty fields
-- ✅ Remember me functionality
-- ❌ Network errors
+| Path | Requires |
+| --- | --- |
+| `/api/auth/council-login`, `/api/auth/student-login`, `/api/auth/logout` | nothing (public) |
+| `/api/auth/me` | any valid session |
+| `/api/student/*` | student session |
+| every other `/api/*` | council or admin session |
+
+A missing or invalid session gets `401`, and the wrong role gets `403`. For allowed requests, the middleware sets `x-user-id` and `x-user-role` from the verified token (and always strips any the client sent), so API routes can trust them.
+
+## Security notes
+
+- **Brute-force protection** on the login routes isn't done yet (task 18 in `docs/README.md`).
+- **Changing `JWT_SECRET`** logs everyone out immediately, which is useful if a token is ever leaked.
+- **Deleting a user or student** doesn't end their current session until it expires, but `/api/auth/me` returns `401` for them, so the sidebar sends them back to the login page.
