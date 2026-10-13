@@ -2,11 +2,19 @@
 
 _Evaluated: October 13, 2026, on `main` at commit `14f1570` (Next.js 15.5.27)._
 
-_Last updated: October 13, 2026 (all P0 tasks and P1 tasks 5 and 10 done)._
+_Last updated: October 13, 2026 (all P0 and P1 tasks done, plus several P2/P3 tasks along the way)._
 
 This document records the current state of the CybSync Attendance System and lists the work still needed, **from highest to lowest priority**. Each task says where the problem is and what "done" looks like, so it can be picked up as an issue or PR on its own.
 
-The other files in this folder (`*_BACKEND_INTEGRATION.md`) describe the API each page expects. This file is the overall to-do list.
+This file is the overall to-do list. The other files in this folder are guides:
+
+| Guide | Covers |
+| --- | --- |
+| `BACKEND_INTEGRATION.md` | Council login, sessions, and which routes/pages each role can use |
+| `STUDENT_LOGIN_BACKEND_INTEGRATION.md` | Student Google sign-in and its setup |
+| `STUDENTS.md` | Students page, CSV import, RFID card linking |
+| `EVENTS_AND_ATTENDANCE.md` | Events (requests, approval, start/end), the scanner, statistics |
+| `REPORTS.md` | Student excuse letters and discrepancy reports |
 
 ---
 
@@ -15,14 +23,14 @@ The other files in this folder (`*_BACKEND_INTEGRATION.md`) describe the API eac
 | Area | State |
 | --- | --- |
 | Build and deploy | ✅ Builds and deploys on Vercel |
-| UI pages | ✅ All 10 pages are designed and render on desktop |
-| Backend API | ⚠️ 16 routes exist, but some are missing or incomplete |
-| Frontend ↔ backend | ❌ **Nothing is connected yet.** Every page shows hardcoded demo data, and every button only logs to the console or shows a "Demo mode" alert. |
+| UI pages | ✅ All council and student pages are connected to real data |
+| Backend API | ✅ Events, attendance, students, reports and auth routes are complete |
+| Frontend ↔ backend | ✅ No demo data left |
 | Security | ⚠️ API routes require login with the right role, and students sign in with their school Google account + Student ID. Council accounts are created with `npm run seed:admin` (task 4). |
-| Mobile layout | ⚠️ Two dashboard pages scroll sideways on phones |
+| Mobile layout | ✅ No page scrolls sideways at 390 px |
 | Tests | ❌ None |
 
-**In short:** the site looks finished, but it doesn't work yet. The most important work is (1) closing the security holes in the API and (2) connecting each page to its API route.
+**In short:** the site now works end to end: students are imported and get RFID cards, events are requested, approved, started and ended, attendance is scanned, and students send excuse letters that the council reviews. What's left is polish: late detection, login rate limiting, tests, and maintenance.
 
 ---
 
@@ -46,31 +54,31 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 
 **🟠 P1: High**
 - [x] 5. Connect the login pages and keep users logged in
-- [ ] 6. Connect the council pages to the API
-- [ ] 7. Connect the student pages and add the missing student report routes
-- [ ] 8. Add event management
-- [ ] 9. Fix the attendance records route
+- [x] 6. Connect the council pages to the API
+- [x] 7. Connect the student pages and add the missing student report routes
+- [x] 8. Add event management
+- [x] 9. Fix the attendance records route
 - [x] 10. Add student and RFID management
 
 **🟡 P2: Medium**
 - [ ] 11. Calculate "late" correctly
-- [ ] 12. Use the AM/PM and Sign In/Sign Out fields consistently
-- [ ] 13. Finish the dashboard statistics
-- [ ] 14. Validate IDs and handle errors in every route
-- [ ] 15. Record who submitted an event request
-- [ ] 16. Store report attachments
-- [ ] 17. Fix horizontal scrolling on phones
+- [x] 12. Use the AM/PM and Sign In/Sign Out fields consistently
+- [x] 13. Finish the dashboard statistics
+- [x] 14. Validate IDs and handle errors in every route
+- [x] 15. Record who submitted an event request
+- [x] 16. Store report attachments
+- [x] 17. Fix horizontal scrolling on phones
 - [ ] 18. Prevent brute-force attacks on login
 - [ ] 19. Add tests
 
 **🟢 P3: Low**
-- [ ] 20. Remove leftover demo code
-- [ ] 21. Clear lint warnings
-- [ ] 22. Remove duplicate mock rows
-- [ ] 23. Update the root README
+- [x] 20. Remove leftover demo code
+- [x] 21. Clear lint warnings
+- [x] 22. Remove duplicate mock rows
+- [x] 23. Update the root README
 - [ ] 24. Plan the Next.js 16 upgrade
 - [ ] 25. Accessibility pass
-- [ ] 26. Make the notification bell work
+- [x] 26. Make the notification bell work
 
 ---
 
@@ -155,7 +163,11 @@ The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/s
 - **Protect the pages:** `/dashboard/*` and `/student-dashboard/*` open for anyone. Redirect to the login page when there is no valid token.
 - **Recommended:** store the token in an `httpOnly` cookie set by the login route instead of `localStorage`. That makes it safer against XSS and lets the middleware protect pages as well as API routes.
 
-### 6. Connect the council pages to the API
+### 6. Connect the council pages to the API ✅ Done
+
+> **Status:** Done on `develop-cybsync`. Dashboard, Attendance (scanner), Request, Past Events and Reports all use real data, plus a new **Events** page (task 8). See `docs/EVENTS_AND_ATTENDANCE.md` and `docs/REPORTS.md`.
+
+> _Original description:_
 
 | Page | File | API to call | Notes |
 | --- | --- | --- | --- |
@@ -165,7 +177,11 @@ The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/s
 | Past events | `src/app/dashboard/past-events/page.tsx` | `GET /api/events/past` | |
 | Reports | `src/app/dashboard/reports/page.tsx` | `GET /api/reports`, accept, reject | |
 
-### 7. Connect the student pages and add the missing student report routes
+### 7. Connect the student pages and add the missing student report routes ✅ Done
+
+> **Status:** Done on `develop-cybsync`. Student dashboard, attendance and reports use real data. New `GET/POST /api/student/reports`; `Report` now has `type` (`excuse`/`discrepancy`), links to the student (from the session) and the event, and supports attachments. Accepting an excuse marks the student excused for that event. See `docs/REPORTS.md`.
+
+> _Original description:_
 
 | Page | File | API to call | Notes |
 | --- | --- | --- | --- |
@@ -178,13 +194,21 @@ Student reports are for two things: **excuse letters** (for an event they missed
 - link each report to the student from the login token (not from the form) and to the event or attendance record it's about;
 - when the council accepts an excuse, set that attendance record's status to `excused`; when they accept a discrepancy, they correct the record.
 
-### 8. Add event management
+### 8. Add event management ✅ Done
+
+> **Status:** Done on `develop-cybsync`. New **Events** page: council members start/end/reopen events; **admins** create, edit, delete events and approve or reject requests (approving creates the event). See `docs/EVENTS_AND_ATTENDANCE.md`.
+
+> _Original description:_
 
 Attendance depends on events, but there is no way to create one, start it (`upcoming → active`) or end it (`active → past`). (The `Event.code` field was only for student check-in, which was removed, so it's no longer needed.) Council members also can't see or approve the event requests submitted from the Request page.
 
 **Done when:** council users can list, approve and reject `EventRequest`s, and an approved request becomes an `Event` they can start and end from the UI.
 
-### 9. Fix the attendance records route
+### 9. Fix the attendance records route ✅ Done
+
+> **Status:** Done on `develop-cybsync`. Moved to `GET /api/attendance/records?eventId=…`. The old attendance guide was replaced by `docs/EVENTS_AND_ATTENDANCE.md`.
+
+> _Original description:_
 
 `src/app/api/attendance/records/[recordId]/route.ts` is in a `[recordId]` folder but ignores `recordId` and reads `?eventId=` from the query string instead. Either move it to `/api/attendance/records` (using `?eventId=`) or rename the folder to `[eventId]` and use the path parameter. Then update `docs/ATTENDANCE_BACKEND_INTEGRATION.md` to match.
 
@@ -209,24 +233,48 @@ The RFID scanner looks students up by `rfid` or `studentId`, but there's no way 
 ### 11. Calculate "late" correctly
 `/api/attendance/scan` always saves `status: "on-time"`, so the late-attendance numbers on the student dashboard will always be 0. Compare the check-in time with the event's `startTime` (plus a grace period).
 
-### 12. Use the AM/PM and Sign In/Sign Out fields consistently
+### 12. Use the AM/PM and Sign In/Sign Out fields consistently ✅ Done
+
+> **Status:** Done. The scanner page has Session (AM/PM) and Scan (Sign In/Sign Out) toggles, and `/api/attendance/scan` only accepts those values.
+
+> _Original description:_
 The RFID scanner accepts any `type` and `action` text from the page. Decide whether events have AM/PM sessions and sign-out, and validate these fields in `/api/attendance/scan` (e.g. `type` must be `AM` or `PM`, `action` must be `Sign In` or `Sign Out`).
 
-### 13. Finish the dashboard statistics
+### 13. Finish the dashboard statistics ✅ Done
+
+> **Status:** Done. `src/lib/eventStats.ts` computes per-event attended count, rate, and course and year-by-course breakdowns; used by the dashboard, attendance and past events.
+
+> _Original description:_
 - `/api/dashboard` returns `courseB: 0` for every year, so the "by Year and Course" chart can't show real data.
 - `/api/events/past` returns `totalDepartmentStudents: 0`, `attendanceRate: 0` and empty distribution arrays for every event.
 - The dashboard's "attended" count counts students who attended **any** event, not the selected event.
 
-### 14. Validate IDs and handle errors in every route
+### 14. Validate IDs and handle errors in every route ✅ Done
+
+> **Status:** Done. All routes with IDs check them (404 for invalid IDs) and handle bad JSON bodies with a 400.
+
+> _Original description:_
 Passing an invalid MongoDB ID (e.g. `/api/reports/abc/accept`) throws an unhandled `CastError` and returns a generic 500. Routes also call `req.json()` without a `try/catch`, so a bad body crashes the request. Validate IDs with `mongoose.isValidObjectId` and return clear `400` errors.
 
-### 15. Record who submitted an event request
+### 15. Record who submitted an event request ✅ Done
+
+> **Status:** Done. `requestedBy` is set from the logged-in user; reviews record `reviewedBy` too.
+
+> _Original description:_
 `EventRequest.requestedBy` is never filled in. Set it from the logged-in user in `/api/events/request`.
 
-### 16. Store report attachments
+### 16. Store report attachments ✅ Done
+
+> **Status:** Done. Files (JPG/PNG/WebP/PDF, checked by content, max 3 × 2 MB) are stored in MongoDB. See `docs/REPORTS.md`.
+
+> _Original description:_
 The student report form accepts file uploads, but nothing stores the files. Use a storage service such as Vercel Blob and save the URLs in `Report.attachments`.
 
-### 17. Fix horizontal scrolling on phones
+### 17. Fix horizontal scrolling on phones ✅ Done
+
+> **Status:** Done. Every council and student page was checked at 390 px wide with no sideways scrolling.
+
+> _Original description:_
 Tested at 390 px width (iPhone 14 size):
 - `/dashboard/attendance` scrolls **316 px** sideways. Wrap the records table in a container with `overflow-x-auto`.
 - `/dashboard` scrolls **67 px** sideways.
@@ -242,13 +290,13 @@ There are no tests. Start with the API routes (logins, middleware auth, RFID sca
 
 ## 🟢 P3: Low (polish and maintenance)
 
-20. **Remove leftover demo code.** Delete mock data, commented-out `fetch` examples and `alert(...)` calls as each page is connected. Replace `alert` with in-page messages or toasts.
-21. **Clear lint warnings.** There are 6 warnings: unused variables in the attendance and student reports pages, an unused `Student` import, and an `<img>` that should be `next/image` in `dashboard/reports/page.tsx`. Note: the `Student` import in the records route registers the model for `.populate("student")`, so keep it or replace it with an explicit side-effect import.
-22. **Remove duplicate mock rows** in `src/app/dashboard/attendance/page.tsx` (record `id: '2'` repeats `year`, `section` and `timestamp`).
-23. **Update the root README.** Its project-structure section is out of date: it lists `tailwind.config.ts` and docs files at the root, and it's missing the student pages, `src/app/api`, `src/models` and `src/lib`. "Backend API Integration" is listed as not started, but the API exists.
+20. ✅ **Remove leftover demo code.** _(Done: no mock data, commented-out fetches or alerts remain.)_ Delete mock data, commented-out `fetch` examples and `alert(...)` calls as each page is connected. Replace `alert` with in-page messages or toasts.
+21. ✅ **Clear lint warnings.** _(Done: `npm run lint` shows 0 problems.)_ There are 6 warnings: unused variables in the attendance and student reports pages, an unused `Student` import, and an `<img>` that should be `next/image` in `dashboard/reports/page.tsx`. Note: the `Student` import in the records route registers the model for `.populate("student")`, so keep it or replace it with an explicit side-effect import.
+22. ✅ **Remove duplicate mock rows** _(Done: the mock data was removed.)_ in `src/app/dashboard/attendance/page.tsx` (record `id: '2'` repeats `year`, `section` and `timestamp`).
+23. ✅ **Update the root README.** _(Done: structure, docs and features sections rewritten.)_ Its project-structure section is out of date: it lists `tailwind.config.ts` and docs files at the root, and it's missing the student pages, `src/app/api`, `src/models` and `src/lib`. "Backend API Integration" is listed as not started, but the API exists.
 24. **Plan the Next.js 16 upgrade.** `npm audit` still reports a `postcss` advisory inside Next.js 15 that is only fixed in Next 16. It only affects the build, not the running site, but Next 16 also renames `middleware.ts` to `proxy.ts`, so plan the upgrade as one task.
 25. **Accessibility pass.** Check color contrast on the bright blue (`#0000FF`) login background, add labels to icon-only buttons (menu, notifications), and make sure the RFID input works with a keyboard and screen readers.
-26. **Make the notification bell work.** The bell on the dashboard header has no function yet. Connect it to new reports or event-request updates, or remove it.
+26. ✅ **Make the notification bell work.** _(Done by removing it: it had no function. Pending counts now show as badges on the Events → Requests and Reports tabs.)_ The bell on the dashboard header has no function yet. Connect it to new reports or event-request updates, or remove it.
 
 ---
 
@@ -256,9 +304,9 @@ There are no tests. Start with the API routes (logins, middleware auth, RFID sca
 
 1. **~~P0 tasks 1, 2 and 4.~~** These are small, contained changes, and the site shouldn't be shared until they're done.
 2. **~~P0 task 3 and P1 task 5.~~**
-3. **P1 task 8 (~~and 10~~).** Without events and students in the database, the rest of the app has no data to show.
-4. **P1 tasks 6, 7 and 9.** Connect the pages one at a time.
-5. P2, then P3.
+3. ~~**P1 tasks 6–10.**~~
+4. **Remaining P2:** 11 (late detection), 18 (login rate limiting), 19 (tests).
+5. **Remaining P3:** 23–25.
 
 ## Branch workflow
 

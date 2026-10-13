@@ -101,54 +101,46 @@ npm run lint
 
 ```
 ├── src/
-│   ├── app/                    # App Router pages and layouts
-│   │   ├── dashboard/          # Dashboard pages
-│   │   │   ├── attendance/     # Attendance tracking
-│   │   │   │   └── page.tsx    # Attendance page with RFID
-│   │   │   ├── request/        # Event request
-│   │   │   │   └── page.tsx    # Event request form
-│   │   │   └── page.tsx        # Main dashboard
-│   │   ├── layout.tsx          # Root layout component
-│   │   ├── page.tsx            # Council login page
-│   │   └── globals.css         # Global styles
-│   └── components/             # Reusable components
-│       ├── Sidebar.tsx         # Dashboard sidebar
-│       └── StatCard.tsx        # Statistics card component
-├── public/                     # Static assets
-├── BACKEND_INTEGRATION.md      # Login backend guide
-├── DASHBOARD_BACKEND_INTEGRATION.md  # Dashboard backend guide
-├── ATTENDANCE_BACKEND_INTEGRATION.md # Attendance & RFID guide
-├── REQUEST_BACKEND_INTEGRATION.md    # Event request guide
-├── next.config.ts              # Next.js configuration
-├── tsconfig.json               # TypeScript configuration
-└── tailwind.config.ts          # Tailwind CSS configuration
+│   ├── app/
+│   │   ├── page.tsx                  # Council login (/)
+│   │   ├── student-login/            # Student login (Google + Student ID)
+│   │   ├── dashboard/                # Council pages: dashboard, events, attendance (scanner),
+│   │   │                             #   students, request, past-events, reports
+│   │   ├── student-dashboard/        # Student pages: dashboard, attendance, reports
+│   │   └── api/                      # API routes (auth, events, attendance, students, reports, student/*)
+│   ├── components/                   # Sidebars, charts, shared UI
+│   ├── lib/                          # Auth/session, validation, stats and formatting helpers
+│   ├── models/                       # Mongoose models (User, Student, Event, EventRequest, Attendance, Report, ReportAttachment)
+│   └── middleware.ts                 # Login + role checks for pages and API routes
+├── scripts/                          # npm run seed:admin, npm run db:migrate
+├── public/students-template.csv      # CSV template for importing students
+└── docs/                             # Guides and the task list (start with docs/README.md)
 ```
 
-## Learn More
+## Documentation
 
-- [Next.js Documentation](https://nextjs.org/docs)
-- [React Documentation](https://react.dev)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [TypeScript Documentation](https://www.typescriptlang.org/docs)
+| Guide | Covers |
+| --- | --- |
+| [`docs/README.md`](docs/README.md) | Project status and the prioritized task list |
+| [`docs/BACKEND_INTEGRATION.md`](docs/BACKEND_INTEGRATION.md) | Council login, sessions, route protection |
+| [`docs/STUDENT_LOGIN_BACKEND_INTEGRATION.md`](docs/STUDENT_LOGIN_BACKEND_INTEGRATION.md) | Student Google sign-in and setup |
+| [`docs/STUDENTS.md`](docs/STUDENTS.md) | Importing students, linking RFID cards |
+| [`docs/EVENTS_AND_ATTENDANCE.md`](docs/EVENTS_AND_ATTENDANCE.md) | Events, approvals, scanning, statistics |
+| [`docs/REPORTS.md`](docs/REPORTS.md) | Student excuse letters and discrepancy reports |
 
-## Completed Features
+## Features
 
-- ✅ Council Login Page (/)
-- ✅ Event Dashboard (/dashboard)
-- ✅ Attendance Page (/dashboard/attendance)
-- ✅ Request Event Page (/dashboard/request)
-- ✅ RFID Scanner Integration
-- ✅ Event Request Form with Validation
-- ✅ Responsive Sidebar Navigation
-- ✅ Real-time Statistics Display
-- ✅ Attendance Charts (Donut & Bar)
-- ✅ Attendance Records Table
-- ✅ Upcoming Events Section
-- ✅ Mobile Responsive Design
-- ✅ Student Login Page
-- ✅ Past Events View
+**Council**
+- Council/admin login, with sessions kept in a secure cookie
+- Events: request, approve (admin), start, end and reopen
+- RFID attendance scanning with AM/PM and Sign In/Out, plus CSV export
+- Students: CSV class-list import, add/edit, RFID card linking
+- Dashboard and past-event statistics with charts
+- Review student reports (excuse letters, discrepancies) with attachments
 
-## Features to Implement
+**Students**
+- Login with school Google account + Student ID
+- View own attendance and stats
+- Send excuse letters or discrepancy reports, with photo/PDF attachments
 
-- ❌ User Management
-- ❌ Backend API Integration
+See [`docs/README.md`](docs/README.md) for what's still planned.

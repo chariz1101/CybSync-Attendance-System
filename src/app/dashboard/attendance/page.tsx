@@ -1,353 +1,307 @@
 'use client';
 
+import Link from 'next/link';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import StatCard from '@/components/StatCard';
-import { useState, useRef, useEffect } from 'react';
+import { Card, EmptyState, ErrorText, inputClass, PageHeader, primaryButton, secondaryButton, StatusPill } from '@/components/ui';
+import { api } from '@/lib/api';
+import { formatClock, formatDateTime, formatEventWhen, yearLabel } from '@/lib/format';
+import { ACTIONS, SESSIONS, type toRecordJson } from '@/lib/attendance';
+import type { toEventJson } from '@/lib/events';
+import type { EventStats } from '@/lib/eventStats';
 
-// Types for backend integration
-interface AttendanceRecord {
-  id: string;
-  studentId: string;
-  name: string;
-  course: string;
-  year: number;
-  section: string;
-  timestamp: string;
-}
-
-interface AttendanceData {
-  event: {
-    name: string;
-    date: string;
-  };
-  stats: {
-    totalDepartmentStudents: number;
-    totalStudentsAttended: number;
-    attendanceRate: number;
-  };
-  records: AttendanceRecord[];
-}
+type EventJson = ReturnType<typeof toEventJson>;
+type RecordJson = ReturnType<typeof toRecordJson>;
+type RecordsData = EventStats & { event: EventJson; records: RecordJson[] };
+type ScanResult = { ok: boolean; message: string };
 
 export default function Attendance() {
-  // Backend integration: Replace with API data
-  const [attendanceData, setAttendanceData] = useState<AttendanceData>({
-    event: {
-      name: 'University Pagirimaw 2025',
-      date: 'September 12, 2025',
-    },
-    stats: {
-      totalDepartmentStudents: 1000,
-      totalStudentsAttended: 800,
-      attendanceRate: 80,
-    },
-    records: [
-      {
-        id: '1',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-      {
-        id: '2',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-      {
-        id: '3',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-      {
-        id: '4',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-      {
-        id: '5',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-      {
-        id: '6',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-      {
-        id: '7',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-      {
-        id: '8',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-      {
-        id: '9',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-      {
-        id: '10',
-        studentId: '2023M1025',
-        name: 'Zuriel Eliazar D. Calix',
-        course: 'BSCS',
-        year: 3,
-        section: 'B',
-        timestamp: '15:00',
-      },
-    ],
+  const [events, setEvents] = useState<EventJson[] | null>(null);
+  const [eventId, setEventId] = useState('');
+  const [data, setData] = useState<RecordsData | null>(null);
+  const [error, setError] = useState('');
+
+  const [session, setSession] = useState<(typeof SESSIONS)[number]>('AM');
+  const [action, setAction] = useState<(typeof ACTIONS)[number]>('Sign In');
+  const [card, setCard] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [lastScan, setLastScan] = useState<ScanResult | null>(null);
+  const [search, setSearch] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Running events first, then ended ones (view only).
+  useEffect(() => {
+    api<{ events: EventJson[] }>('/api/events?status=active,past')
+      .then(({ events }) => {
+        const sorted = [...events.filter((e) => e.status === 'active'), ...events.filter((e) => e.status === 'past').reverse()];
+        setEvents(sorted);
+        const fromUrl = new URLSearchParams(window.location.search).get('event');
+        setEventId(sorted.find((e) => e.id === fromUrl)?.id ?? sorted.find((e) => e.status === 'active')?.id ?? sorted[0]?.id ?? '');
+      })
+      .catch((e) => setError(e.message));
+  }, []);
+
+  const loadRecords = useCallback(async () => {
+    if (!eventId) return;
+    try {
+      setData(await api<RecordsData>(`/api/attendance/records?eventId=${eventId}`));
+      setError('');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    setData(null);
+    setLastScan(null);
+    loadRecords();
+  }, [loadRecords]);
+
+  const isRunning = data?.event.status === 'active';
+
+  // Keep the card input focused while the scanner is in use.
+  useEffect(() => {
+    if (isRunning && !scanning) inputRef.current?.focus();
+  }, [isRunning, scanning, session, action]);
+
+  const scan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = card.trim();
+    if (!value || scanning) return;
+    setScanning(true);
+    setCard('');
+    try {
+      const res = await api<{ record: RecordJson }>('/api/attendance/scan', {
+        method: 'POST',
+        json: { rfid: value, eventId, type: session, action },
+      });
+      const r = res.record;
+      setLastScan({ ok: true, message: `${r.name} (${r.studentId}) · ${session} ${action} at ${formatClock(r.timestamp)}` });
+      setData((d) => (d ? { ...d, records: [r, ...d.records] } : d));
+      loadRecords(); // refresh the stats
+    } catch (err) {
+      setLastScan({ ok: false, message: (err as Error).message });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const shown = data?.records.filter((r) => {
+    const q = search.trim().toLowerCase();
+    return !q || `${r.studentId} ${r.name} ${r.course} ${r.section}`.toLowerCase().includes(q);
   });
 
-  // RFID Scanner State
-  const [rfidInput, setRfidInput] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
-  const rfidInputRef = useRef<HTMLInputElement>(null);
-
-  // Auto-focus input when scanning starts
-  useEffect(() => {
-    if (isScanning && rfidInputRef.current) {
-      rfidInputRef.current.focus();
-    }
-  }, [isScanning]);
-
-  // Backend integration: Handle manual RFID entry
-  const handleRfidSubmit = async () => {
-    if (!rfidInput.trim()) return;
-
-    console.log('Manual RFID Entry:', rfidInput);
-    
-    // Backend integration point - Add your API call here
-    // Example:
-    // try {
-    //   const response = await fetch('/api/attendance/scan', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ rfid: rfidInput, eventId: 'current' }),
-    //   });
-    //   const data = await response.json();
-    //   // Update attendance records
-    //   setAttendanceData(prev => ({
-    //     ...prev,
-    //     records: [data.record, ...prev.records],
-    //   }));
-    // } catch (error) {
-    //   console.error('Failed to record attendance:', error);
-    // }
-
-    setRfidInput('');
-  };
-
-  // Backend integration: Start automatic RFID scanning
-  const handleStartScanning = () => {
-    setIsScanning(true);
-    console.log('RFID Scanner: Started');
-    
-    // Backend integration point
-    // Connect to RFID reader via WebSocket or polling
-    // Example:
-    // const ws = new WebSocket('ws://your-rfid-reader/scan');
-    // ws.onmessage = (event) => {
-    //   const rfid = event.data;
-    //   // Automatically process scanned RFID
-    //   handleRfidScan(rfid);
-    // };
-  };
-
-  // Backend integration: Stop automatic RFID scanning
-  const handleStopScanning = () => {
-    setIsScanning(false);
-    console.log('RFID Scanner: Stopped');
-    
-    // Backend integration point
-    // Disconnect from RFID reader
-    // Example:
-    // if (ws) ws.close();
-  };
-
-  // Handle Enter key press in RFID input
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleRfidSubmit();
-    }
+  const exportCsv = () => {
+    if (!data) return;
+    const rows = [
+      ['Student ID', 'Name', 'Course', 'Year', 'Section', 'Session', 'Action', 'Time', 'Status'],
+      ...data.records.map((r) => [r.studentId, r.name, r.course, r.year, r.section, r.type, r.action, formatDateTime(r.timestamp), r.status]),
+    ];
+    const csv = rows.map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: `${data.event.name} attendance.csv` });
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
       <Sidebar />
+      <main className="flex-1 lg:ml-64 min-w-0">
+        <PageHeader title="Attendance" subtitle={data ? `${data.event.name} · ${formatEventWhen(data.event)}` : ' '} />
 
-      {/* Main Content */}
-      <main className="flex-1 lg:ml-64">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="lg:ml-0 ml-12">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Attendance</h1>
-              <p className="text-sm sm:text-base text-gray-600 mt-1">{attendanceData.event.name}</p>
+        <div className="p-4 sm:p-8 space-y-6">
+          {error && <ErrorText>{error}</ErrorText>}
+
+          {events && events.length === 0 && (
+            <Card>
+              <EmptyState title="No event is running">
+                Start an event on the{' '}
+                <Link href="/dashboard/events" className="text-blue-600 font-semibold hover:underline">
+                  Events
+                </Link>{' '}
+                page to begin scanning.
+              </EmptyState>
+            </Card>
+          )}
+
+          {events && events.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <label htmlFor="event-select" className="text-sm font-medium text-gray-700">
+                Event
+              </label>
+              <select
+                id="event-select"
+                value={eventId}
+                onChange={(e) => setEventId(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-80"
+              >
+                {events.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.status === 'active' ? '● ' : ''}
+                    {e.name} {e.status === 'past' ? '(ended)' : ''}
+                  </option>
+                ))}
+              </select>
             </div>
-            <button className="p-3 hover:bg-gray-100 rounded-full transition-colors relative">
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              {/* Red notification dot */}
-              <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-          </div>
-        </header>
+          )}
 
-        {/* Content */}
-        <div className="p-4 sm:p-8">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <StatCard
-              title="Total Department Students"
-              value={attendanceData.stats.totalDepartmentStudents}
-              icon="students"
-              iconColor="red"
-            />
-            <StatCard
-              title="Total Students Attended"
-              value={attendanceData.stats.totalStudentsAttended}
-              icon="attended"
-              iconColor="blue"
-            />
-            <StatCard
-              title="Attendance Rate"
-              value={`${attendanceData.stats.attendanceRate}%`}
-              icon="rate"
-              iconColor="green"
-            />
-          </div>
-
-          {/* Attendance Table */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            {/* Table Container - Horizontal scroll on mobile */}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">ID</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Name</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Course</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Year</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Section</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Time</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {attendanceData.records.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{record.studentId}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{record.name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{record.course}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{record.year}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{record.section}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{record.timestamp}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* RFID Scanner Controls */}
-            <div className="border-t border-gray-200 p-6">
-              {/* Note */}
-              <p className="text-center text-xs text-gray-400 italic mb-4">
-                ***Note: RFID Entries are automatically scanned via ID Card Reader***
-              </p>
-
-              {/* Scanner Controls */}
-              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                {/* RFID Input */}
-                <div className="flex-1">
-                  <input
-                    ref={rfidInputRef}
-                    type="text"
-                    value={rfidInput}
-                    onChange={(e) => setRfidInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Enter Student RF ID"
-                    disabled={isScanning}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  />
-                </div>
-
-                {/* Enter Button */}
-                <button
-                  onClick={handleRfidSubmit}
-                  disabled={isScanning || !rfidInput.trim()}
-                  className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-xl transition-colors disabled:cursor-not-allowed whitespace-nowrap"
-                >
-                  Enter
-                </button>
-
-                {/* Start Button */}
-                <button
-                  onClick={handleStartScanning}
-                  disabled={isScanning}
-                  className="px-8 py-3 bg-white hover:bg-gray-50 border-2 border-blue-600 text-blue-600 font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                >
-                  Start
-                </button>
-
-                {/* Stop Button */}
-                <button
-                  onClick={handleStopScanning}
-                  disabled={!isScanning}
-                  className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold rounded-xl transition-colors disabled:cursor-not-allowed whitespace-nowrap"
-                >
-                  Stop
-                </button>
+          {data && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                <StatCard title="Total Department Students" value={data.stats.totalDepartmentStudents} icon="students" iconColor="red" />
+                <StatCard title="Total Students Attended" value={data.stats.totalStudentsAttended} icon="attended" iconColor="blue" />
+                <StatCard title="Attendance Rate" value={`${data.stats.attendanceRate}%`} icon="rate" iconColor="green" />
               </div>
 
-              {/* Scanning Status Indicator */}
-              {isScanning && (
-                <div className="mt-4 flex items-center justify-center gap-2 text-green-600">
-                  <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium">Scanner Active - Ready to scan RFID cards</span>
-                </div>
+              {/* Scanner */}
+              {isRunning ? (
+                <Card className="p-4 sm:p-6 space-y-4">
+                  <div className="flex flex-wrap gap-4">
+                    <Toggle label="Session" options={SESSIONS} value={session} onChange={setSession} />
+                    <Toggle label="Scan" options={ACTIONS} value={action} onChange={setAction} />
+                  </div>
+                  <form onSubmit={scan} className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      ref={inputRef}
+                      value={card}
+                      onChange={(e) => setCard(e.target.value)}
+                      readOnly={scanning}
+                      autoComplete="off"
+                      aria-label="RFID card or Student ID"
+                      placeholder="Tap a card on the reader, or type a Student ID and press Enter"
+                      className={`${inputClass} text-lg font-mono border-2 border-blue-300 bg-white`}
+                    />
+                    <button type="submit" disabled={!card.trim() || scanning} className={`${primaryButton} px-8`}>
+                      Enter
+                    </button>
+                  </form>
+                  {lastScan && (
+                    <p
+                      role="status"
+                      className={`text-base font-medium rounded-xl px-4 py-3 border ${
+                        lastScan.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'
+                      }`}
+                    >
+                      {lastScan.ok ? '✓ ' : '✗ '}
+                      {lastScan.message}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    USB RFID readers type the card number and press Enter automatically. Keep this page open and the box focused.
+                  </p>
+                </Card>
+              ) : (
+                <p className="text-sm text-gray-600 bg-gray-100 rounded-xl px-4 py-3">
+                  This event has ended, so the scanner is off. To add late scans, reopen it on the{' '}
+                  <Link href="/dashboard/events" className="text-blue-600 font-semibold hover:underline">
+                    Events
+                  </Link>{' '}
+                  page.
+                </p>
               )}
-            </div>
-          </div>
+
+              {/* Records */}
+              <Card className="overflow-hidden">
+                <div className="p-4 sm:p-6 flex flex-col sm:flex-row gap-3 sm:items-center border-b border-gray-200">
+                  <h2 className="text-lg font-bold text-gray-900 flex-1">
+                    Records <span className="text-gray-500 font-normal">({data.records.length})</span>
+                  </h2>
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search records"
+                    className={`${inputClass} sm:w-64`}
+                  />
+                  <button onClick={exportCsv} disabled={!data.records.length} className={secondaryButton}>
+                    Export CSV
+                  </button>
+                </div>
+
+                {shown && shown.length === 0 ? (
+                  <EmptyState title={data.records.length ? 'No records match your search' : 'No one has been scanned yet'} />
+                ) : (
+                  <>
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 text-gray-700">
+                          <tr>
+                            {['ID', 'Name', 'Course', 'Year', 'Section', 'Session', 'Time', 'Status'].map((h) => (
+                              <th key={h} className="px-6 py-3 text-left font-semibold whitespace-nowrap">
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {shown?.map((r) => (
+                            <tr key={r.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-3 font-mono whitespace-nowrap">{r.studentId}</td>
+                              <td className="px-6 py-3 whitespace-nowrap">{r.name}</td>
+                              <td className="px-6 py-3">{r.course}</td>
+                              <td className="px-6 py-3">{yearLabel(r.year)}</td>
+                              <td className="px-6 py-3">{r.section}</td>
+                              <td className="px-6 py-3 whitespace-nowrap">{[r.type, r.action].filter(Boolean).join(' · ')}</td>
+                              <td className="px-6 py-3 whitespace-nowrap">{scanTime(r)}</td>
+                              <td className="px-6 py-3">
+                                <StatusPill status={r.status} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <ul className="md:hidden divide-y divide-gray-100">
+                      {shown?.map((r) => (
+                        <li key={r.id} className="p-4 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900">{r.name}</p>
+                            <p className="text-xs text-gray-600">
+                              <span className="font-mono">{r.studentId}</span> · {r.course} {yearLabel(r.year)} {r.section}
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              {[r.type, r.action, scanTime(r)].filter((x) => x && x !== '—').join(' · ')}
+                            </p>
+                          </div>
+                          <StatusPill status={r.status} />
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </Card>
+            </>
+          )}
         </div>
       </main>
     </div>
   );
 }
 
+// Excused records are added when the council accepts an excuse letter; they have no scan time.
+function scanTime(r: RecordJson) {
+  return r.action === 'Excused' ? '—' : formatClock(r.timestamp);
+}
+
+function Toggle<T extends string>({ label, options, value, onChange }: { label: string; options: readonly T[]; value: T; onChange: (v: T) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm font-medium text-gray-700">{label}</span>
+      <div className="inline-flex rounded-xl border border-gray-300 overflow-hidden">
+        {options.map((o) => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onChange(o)}
+            aria-pressed={value === o}
+            className={`px-4 py-2 text-sm font-semibold ${value === o ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
