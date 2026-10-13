@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function CouncilLogin() {
@@ -9,6 +10,7 @@ export default function CouncilLogin() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +28,7 @@ export default function CouncilLogin() {
         return;
       }
       // The session cookie is set by the server; go to the dashboard.
-      window.location.href = '/dashboard';
+      router.replace('/dashboard');
     } catch {
       setError('An error occurred. Please try again.');
     } finally {

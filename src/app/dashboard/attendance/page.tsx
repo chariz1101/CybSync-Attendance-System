@@ -43,21 +43,35 @@ export default function Attendance() {
       .catch((e) => setError(e.message));
   }, []);
 
-  const loadRecords = useCallback(async () => {
-    if (!eventId) return;
-    try {
-      setData(await api<RecordsData>(`/api/attendance/records?eventId=${eventId}`));
-      setError('');
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, [eventId]);
+  // Loads the chosen event's records. `isCurrent` lets a stale response (from an
+  // event you've already switched away from) be ignored.
+  const loadRecords = useCallback(
+    (isCurrent: () => boolean = () => true) =>
+      eventId
+        ? api<RecordsData>(`/api/attendance/records?eventId=${eventId}`)
+            .then((d) => {
+              if (!isCurrent()) return;
+              setData(d);
+              setError('');
+            })
+            .catch((e) => isCurrent() && setError((e as Error).message))
+        : Promise.resolve(),
+    [eventId]
+  );
 
   useEffect(() => {
+    let current = true;
+    loadRecords(() => current);
+    return () => {
+      current = false;
+    };
+  }, [loadRecords]);
+
+  const chooseEvent = (id: string) => {
+    setEventId(id);
     setData(null);
     setLastScan(null);
-    loadRecords();
-  }, [loadRecords]);
+  };
 
   const isRunning = data?.event.status === 'active';
 
@@ -139,7 +153,7 @@ export default function Attendance() {
               <select
                 id="event-select"
                 value={eventId}
-                onChange={(e) => setEventId(e.target.value)}
+                onChange={(e) => chooseEvent(e.target.value)}
                 className="px-4 py-2.5 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-80"
               >
                 {events.map((e) => (

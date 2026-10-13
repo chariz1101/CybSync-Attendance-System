@@ -61,7 +61,7 @@ Both login routes (council and student) put the login token in a cookie:
 const res = await fetch('/api/dashboard');
 ```
 
-There's no need to send an `Authorization` header or read anything from `localStorage`/`sessionStorage`. (The middleware still accepts `Authorization: Bearer <token>` for non-browser clients, e.g. a future RFID device.)
+There's no need to send an `Authorization` header or read anything from `localStorage`/`sessionStorage`. (The proxy still accepts `Authorization: Bearer <token>` for non-browser clients, e.g. a future RFID device.)
 
 ### Other auth routes
 
@@ -72,7 +72,9 @@ There's no need to send an `Authorization` header or read anything from `localSt
 
 `src/lib/useCurrentUser.ts` wraps these for pages: `useCurrentUser(loginPath)` loads the current user (and redirects to `loginPath` if the session has expired), and `signOut(loginPath)` logs out. Both sidebars use them.
 
-## What's protected (`src/middleware.ts`)
+## What's protected (`src/proxy.ts`)
+
+`proxy.ts` is Next.js 16's name for middleware. It runs before every page and API request listed in its `matcher`.
 
 **Pages**
 
@@ -92,7 +94,7 @@ There's no need to send an `Authorization` header or read anything from `localSt
 | `/api/student/*` | student session |
 | every other `/api/*` | council or admin session |
 
-A missing or invalid session gets `401`, and the wrong role gets `403`. For allowed requests, the middleware sets `x-user-id` and `x-user-role` from the verified token (and always strips any the client sent), so API routes can trust them.
+A missing or invalid session gets `401`, and the wrong role gets `403`. For allowed requests, the proxy sets `x-user-id` and `x-user-role` from the verified token (and always strips any the client sent), so API routes can trust them.
 
 ## Security notes
 

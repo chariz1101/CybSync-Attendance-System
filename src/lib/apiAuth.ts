@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { User } from "@/models/User";
 
-/** The logged-in user, as verified and set by the middleware. */
+/** The logged-in user, as verified and set by the proxy. */
 export function currentUser(req: Request) {
   return { id: req.headers.get("x-user-id") ?? "", role: req.headers.get("x-user-role") ?? "" };
 }

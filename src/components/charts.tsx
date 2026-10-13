@@ -10,32 +10,32 @@ export function CourseDonut({ data }: { data: Slice[] }) {
 
   const r = 80;
   const circumference = 2 * Math.PI * r;
-  let offset = 0;
+  // Each slice starts where the previous ones end.
+  const slices = data.map((d, i) => ({
+    ...d,
+    length: (d.value / total) * circumference,
+    offset: (data.slice(0, i).reduce((sum, p) => sum + p.value, 0) / total) * circumference,
+  }));
   return (
     <div>
       <div className="flex items-center justify-center mb-6">
         <div className="relative w-56 h-56 sm:w-64 sm:h-64">
           <svg viewBox="0 0 200 200" className="-rotate-90" role="img" aria-label="Attendance by course">
-            {data.map((d) => {
-              const length = (d.value / total) * circumference;
-              const circle = (
-                <circle
-                  key={d.course}
-                  cx="100"
-                  cy="100"
-                  r={r}
-                  fill="none"
-                  stroke={d.color}
-                  strokeWidth="40"
-                  strokeDasharray={`${length} ${circumference}`}
-                  strokeDashoffset={-offset}
-                >
-                  <title>{`${d.course}: ${d.value}`}</title>
-                </circle>
-              );
-              offset += length;
-              return circle;
-            })}
+            {slices.map((d) => (
+              <circle
+                key={d.course}
+                cx="100"
+                cy="100"
+                r={r}
+                fill="none"
+                stroke={d.color}
+                strokeWidth="40"
+                strokeDasharray={`${d.length} ${circumference}`}
+                strokeDashoffset={-d.offset}
+              >
+                <title>{`${d.course}: ${d.value}`}</title>
+              </circle>
+            ))}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-3xl font-bold text-gray-900">{total}</span>

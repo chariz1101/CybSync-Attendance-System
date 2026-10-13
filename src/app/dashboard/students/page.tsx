@@ -608,10 +608,6 @@ function LinkCardModal({ student, onClose, onNext }: { student: Student; onClose
   // USB readers "type" into whatever has focus, so keep the input focused:
   // when a new student is shown, and again after every save attempt.
   useEffect(() => {
-    setCard('');
-    setError('');
-  }, [student.id]);
-  useEffect(() => {
     if (!busy) inputRef.current?.focus();
   }, [busy, student.id]);
 
@@ -636,7 +632,11 @@ function LinkCardModal({ student, onClose, onNext }: { student: Student; onClose
       if (keepGoing) {
         const next = await fetch('/api/students?card=unlinked').then(readJson);
         const nextStudent: Student | undefined = next.students?.find((s: Student) => s.id !== student.id);
-        if (nextStudent) onNext(nextStudent);
+        if (nextStudent) {
+          setCard('');
+          setError('');
+          onNext(nextStudent);
+        }
         else setSuccess(`Linked card ${rfid} to ${student.name}. Every student now has a card.`);
       }
     } catch (err) {

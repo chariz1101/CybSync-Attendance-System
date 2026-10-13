@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Script from "next/script";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
@@ -28,15 +29,12 @@ export default function StudentLogin() {
   const [error, setError] = useState('');
   const [googleReady, setGoogleReady] = useState(false);
   const googleButtonRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
-  // The Google callback is registered once, so read the latest form values from refs.
-  const studentIdRef = useRef(studentId);
-  const rememberMeRef = useRef(rememberMe);
-  studentIdRef.current = studentId;
-  rememberMeRef.current = rememberMe;
-
-  const handleGoogleCredential = useCallback(async ({ credential }: GoogleCredentialResponse) => {
-    const id = studentIdRef.current.trim();
+  // Google calls this after sign-in. It's registered once, so it's an Effect Event:
+  // it always sees the latest Student ID and "Remember me" values.
+  const handleGoogleCredential = useEffectEvent(async ({ credential }: GoogleCredentialResponse) => {
+    const id = studentId.trim();
     if (!id) {
       setError('Enter your Student ID first, then sign in with Google.');
       return;
@@ -48,7 +46,7 @@ export default function StudentLogin() {
       const response = await fetch('/api/auth/student-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: id, credential, rememberMe: rememberMeRef.current }),
+        body: JSON.stringify({ studentId: id, credential, rememberMe }),
       });
       const data = await response.json();
 
@@ -58,17 +56,17 @@ export default function StudentLogin() {
       }
 
       // The session cookie is set by the server; go to the dashboard.
-      window.location.href = '/student-dashboard';
+      router.replace('/student-dashboard');
     } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  });
 
   useEffect(() => {
     if (!googleReady || !GOOGLE_CLIENT_ID || !window.google || !googleButtonRef.current) return;
-    window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+    window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (response) => handleGoogleCredential(response) });
     window.google.accounts.id.renderButton(googleButtonRef.current, {
       theme: 'outline',
       size: 'large',
@@ -76,7 +74,7 @@ export default function StudentLogin() {
       text: 'signin_with',
       width: 320,
     });
-  }, [googleReady, handleGoogleCredential]);
+  }, [googleReady]);
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-[#0000FF] px-4 py-8">

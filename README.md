@@ -4,8 +4,8 @@ Cyb:Org Attendance System Project
 
 ## Tech Stack
 
-- **Next.js 15.5** - React framework with server-side rendering
-- **React 19** - UI library
+- **Next.js 16** - React framework with server-side rendering
+- **React 19.3** - UI library
 - **TypeScript** - Type-safe JavaScript
 - **Tailwind CSS 4** - Utility-first CSS framework
 - **ESLint** - Code linting
@@ -15,7 +15,7 @@ Cyb:Org Attendance System Project
 
 ### Prerequisites
 
-- Node.js 18.17 or later
+- Node.js 20.9 or later
 - npm or yarn or pnpm
 
 ### Installation
@@ -111,7 +111,7 @@ npm run lint
 │   ├── components/                   # Sidebars, charts, shared UI
 │   ├── lib/                          # Auth/session, validation, stats and formatting helpers
 │   ├── models/                       # Mongoose models (User, Student, Event, EventRequest, Attendance, Report, ReportAttachment)
-│   └── middleware.ts                 # Login + role checks for pages and API routes
+│   └── proxy.ts                      # Login + role checks for pages and API routes
 ├── scripts/                          # npm run seed:admin, npm run db:migrate
 ├── public/students-template.csv      # CSV template for importing students
 └── docs/                             # Guides and the task list (start with docs/README.md)

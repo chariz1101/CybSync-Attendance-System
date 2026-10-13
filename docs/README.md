@@ -76,7 +76,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 - [x] 21. Clear lint warnings
 - [x] 22. Remove duplicate mock rows
 - [x] 23. Update the root README
-- [ ] 24. Plan the Next.js 16 upgrade
+- [x] 24. Plan the Next.js 16 upgrade
 - [x] 25. Accessibility pass
 - [x] 26. Make the notification bell work
 
@@ -86,7 +86,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 
 ### 1. Protect the council/admin API routes ✅ Done
 
-> **Status:** Done on `develop-cybsync`. `src/middleware.ts` now:
+> **Status:** Done on `develop-cybsync`. `src/proxy.ts` now:
 > - lets only `/api/auth/council-login` and `/api/auth/student-login` through without a token;
 > - returns `401 Unauthorized` when the token is missing, invalid, expired, or has no `sub`/`role`;
 > - allows `/api/student/*` only for `role: "student"`, and every other `/api/*` route only for `role: "council"` or `"admin"`. Anything else gets `403 Forbidden`.
@@ -95,7 +95,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 >
 > _Original description:_
 
-`src/middleware.ts` only checks a token **when one is sent**. A request with no `Authorization` header goes straight through, so anyone on the internet can call these routes without logging in:
+`src/proxy.ts` only checks a token **when one is sent**. A request with no `Authorization` header goes straight through, so anyone on the internet can call these routes without logging in:
 
 - `GET /api/dashboard`, `GET /api/dashboard/events/upcoming`
 - `POST /api/attendance/scan` (record attendance for any student)
@@ -109,9 +109,9 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 
 The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/student/check-in`) identify the student by the `x-user-id` header. The middleware sets this header after checking a token, but if no token is sent, it passes along whatever `x-user-id` the client wrote. Anyone can send `x-user-id: <someone's id>` to read that student's attendance or check them in.
 
-**Done when:** the middleware always deletes incoming `x-user-id` and `x-user-role` headers before (optionally) setting them from a verified token. Together with task 1, that is a small change in `src/middleware.ts`.
+**Done when:** the middleware always deletes incoming `x-user-id` and `x-user-role` headers before (optionally) setting them from a verified token. Together with task 1, that is a small change in `src/proxy.ts`.
 
-> **Status:** Done on `develop-cybsync`. `src/middleware.ts` now deletes any client-sent `x-user-id` and `x-user-role` headers on **every** `/api` request, including the public login routes, and only sets them again from a verified token. API routes can trust these headers.
+> **Status:** Done on `develop-cybsync`. `src/proxy.ts` now deletes any client-sent `x-user-id` and `x-user-role` headers on **every** `/api` request, including the public login routes, and only sets them again from a verified token. API routes can trust these headers.
 
 ### 3. Decide how students prove who they are ✅ Done
 
@@ -302,7 +302,7 @@ There are no tests. Start with the API routes (logins, middleware auth, RFID sca
 21. ✅ **Clear lint warnings.** _(Done: `npm run lint` shows 0 problems.)_ There are 6 warnings: unused variables in the attendance and student reports pages, an unused `Student` import, and an `<img>` that should be `next/image` in `dashboard/reports/page.tsx`. Note: the `Student` import in the records route registers the model for `.populate("student")`, so keep it or replace it with an explicit side-effect import.
 22. ✅ **Remove duplicate mock rows** _(Done: the mock data was removed.)_ in `src/app/dashboard/attendance/page.tsx` (record `id: '2'` repeats `year`, `section` and `timestamp`).
 23. ✅ **Update the root README.** _(Done: structure, docs and features sections rewritten.)_ Its project-structure section is out of date: it lists `tailwind.config.ts` and docs files at the root, and it's missing the student pages, `src/app/api`, `src/models` and `src/lib`. "Backend API Integration" is listed as not started, but the API exists.
-24. **Plan the Next.js 16 upgrade.** `npm audit` still reports a `postcss` advisory inside Next.js 15 that is only fixed in Next 16. It only affects the build, not the running site, but Next 16 also renames `middleware.ts` to `proxy.ts`, so plan the upgrade as one task.
+24. ✅ **Plan the Next.js 16 upgrade.** _(Done: upgraded to Next.js 16.4.0 and React 19.3. `middleware.ts` is now `proxy.ts`, ESLint uses the new native config (including the React Compiler rules, whose findings were fixed), and `npm audit` reports 0 vulnerabilities.)_ `npm audit` still reports a `postcss` advisory inside Next.js 15 that is only fixed in Next 16. It only affects the build, not the running site, but Next 16 also renames `proxy.ts` to `proxy.ts`, so plan the upgrade as one task.
 25. ✅ **Accessibility pass.** _(Done: an axe-core audit (WCAG 2.1 A/AA + best practices) of all 12 pages at desktop and phone width reports 0 violations. Fixed: labels on the mobile menu buttons and the report file picker, a `main` landmark on the login pages, a hidden header for the students table's actions column, and dialogs now move keyboard focus in and back out. Color contrast, including the blue login background, passes.)_ Check color contrast on the bright blue (`#0000FF`) login background, add labels to icon-only buttons (menu, notifications), and make sure the RFID input works with a keyboard and screen readers.
 26. ✅ **Make the notification bell work.** _(Done by removing it: it had no function. Pending counts now show as badges on the Events → Requests and Reports tabs.)_ The bell on the dashboard header has no function yet. Connect it to new reports or event-request updates, or remove it.
 

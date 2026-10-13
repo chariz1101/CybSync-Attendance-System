@@ -25,6 +25,10 @@ type EventJson = ReturnType<typeof toEventJson>;
 type RequestJson = ReturnType<typeof toRequestJson>;
 type Tab = 'events' | 'requests';
 
+function fetchEventsAndRequests() {
+  return Promise.all([api<{ events: EventJson[] }>('/api/events'), api<{ requests: RequestJson[] }>('/api/events/requests')]);
+}
+
 export default function EventsPage() {
   const user = useCurrentUser('/');
   const isAdmin = user?.role === 'admin';
@@ -37,18 +41,16 @@ export default function EventsPage() {
   const [reviewing, setReviewing] = useState<RequestJson | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const [e, r] = await Promise.all([
-        api<{ events: EventJson[] }>('/api/events'),
-        api<{ requests: RequestJson[] }>('/api/events/requests'),
-      ]);
-      setEvents(e.events);
-      setRequests(r.requests);
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  }, []);
+  const load = useCallback(
+    () =>
+      fetchEventsAndRequests()
+        .then(([e, r]) => {
+          setEvents(e.events);
+          setRequests(r.requests);
+        })
+        .catch((err) => setError((err as Error).message)),
+    []
+  );
 
   useEffect(() => {
     load();

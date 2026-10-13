@@ -90,11 +90,11 @@ function handlePage(req: NextRequest) {
   return NextResponse.next();
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   return isUnder(req.nextUrl.pathname, "/api") ? handleApi(req) : handlePage(req);
 }
 
+// Runs on the Node.js runtime (Next.js 16 proxies always do), which jsonwebtoken needs.
 export const config = {
   matcher: ["/api/:path*", "/", "/student-login", "/dashboard/:path*", "/student-dashboard/:path*"],
-  runtime: "nodejs",
 };
