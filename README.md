@@ -70,6 +70,18 @@ It asks for a username, display name, role (`council` or `admin`) and password, 
 - Running it again with an existing username offers to **reset that account's password**.
 - Non-interactive use: `SEED_PASSWORD=... npm run seed:admin -- --username cictsc --name "CICT Student Council" --role council`
 
+### Database Upgrades
+
+After pulling an update that changes the database (the PR will say so), run this once against the production database (production `MONGODB_URI` in `.env.local`). It's safe to run more than once:
+
+```bash
+npm run db:migrate
+```
+
+### Managing Students
+
+Council members import class lists (CSV) and link RFID cards on **Dashboard → Students**. See `docs/STUDENTS.md` for the CSV template and how card linking works.
+
 ### Deploying to Vercel
 
 1. Push the repository to GitHub.

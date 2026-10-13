@@ -2,7 +2,7 @@
 
 _Evaluated: October 13, 2026, on `main` at commit `14f1570` (Next.js 15.5.27)._
 
-_Last updated: October 13, 2026 (all P0 tasks and P1 task 5 done)._
+_Last updated: October 13, 2026 (all P0 tasks and P1 tasks 5 and 10 done)._
 
 This document records the current state of the CybSync Attendance System and lists the work still needed, **from highest to lowest priority**. Each task says where the problem is and what "done" looks like, so it can be picked up as an issue or PR on its own.
 
@@ -50,7 +50,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 - [ ] 7. Connect the student pages and add the missing student report routes
 - [ ] 8. Add event management
 - [ ] 9. Fix the attendance records route
-- [ ] 10. Add student and RFID management
+- [x] 10. Add student and RFID management
 
 **🟡 P2: Medium**
 - [ ] 11. Calculate "late" correctly
@@ -188,7 +188,15 @@ Attendance depends on events, but there is no way to create one, start it (`upco
 
 `src/app/api/attendance/records/[recordId]/route.ts` is in a `[recordId]` folder but ignores `recordId` and reads `?eventId=` from the query string instead. Either move it to `/api/attendance/records` (using `?eventId=`) or rename the folder to `[eventId]` and use the path parameter. Then update `docs/ATTENDANCE_BACKEND_INTEGRATION.md` to match.
 
-### 10. Add student and RFID management
+### 10. Add student and RFID management ✅ Done
+
+> **Status:** Done on `develop-cybsync`. Guide: `docs/STUDENTS.md`.
+> - New **Students** page (`/dashboard/students`): search, filter by card, add/edit students, set inactive.
+> - **CSV import** with a preview step. It recognizes common class-list column names, reports problem rows, and matches existing students by Student ID. Template: `public/students-template.csv`.
+> - **RFID linking** by tapping the card on the USB reader, with "go to next student without a card" for linking many cards in a row.
+> - RFID cards are now **unique** in the database. Existing databases need `npm run db:migrate` once.
+>
+> _Original description:_
 
 The RFID scanner looks students up by `rfid` or `studentId`, but there's no way to add students or link RFID cards to them.
 
@@ -248,7 +256,7 @@ There are no tests. Start with the API routes (logins, middleware auth, RFID sca
 
 1. **~~P0 tasks 1, 2 and 4.~~** These are small, contained changes, and the site shouldn't be shared until they're done.
 2. **~~P0 task 3 and P1 task 5.~~**
-3. **P1 tasks 8 and 10.** Without events and students in the database, the rest of the app has no data to show.
+3. **P1 task 8 (~~and 10~~).** Without events and students in the database, the rest of the app has no data to show.
 4. **P1 tasks 6, 7 and 9.** Connect the pages one at a time.
 5. P2, then P3.
 
