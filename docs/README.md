@@ -2,7 +2,7 @@
 
 _Evaluated: October 13, 2026, on `main` at commit `14f1570` (Next.js 15.5.27)._
 
-_Last updated: October 13, 2026 (P0 task 1 done)._
+_Last updated: October 13, 2026 (P0 tasks 1 and 2 done)._
 
 This document records the current state of the CybSync Attendance System and lists the work still needed, **from highest to lowest priority**. Each task says where the problem is and what "done" looks like, so it can be picked up as an issue or PR on its own.
 
@@ -32,7 +32,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 
 **🔴 P0: Critical**
 - [x] 1. Protect the council/admin API routes
-- [ ] 2. Stop trusting a client-sent `x-user-id` header
+- [x] 2. Stop trusting a client-sent `x-user-id` header
 - [ ] 3. Decide how students prove who they are
 - [ ] 4. Create the first council account
 
@@ -89,13 +89,13 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 
 **Done when:** every route except the two login routes returns `401` without a valid token, and council-only routes return `403` for a token with `role: "student"`.
 
-### 2. Stop trusting a client-sent `x-user-id` header
+### 2. Stop trusting a client-sent `x-user-id` header ✅ Done
 
 The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/student/check-in`) identify the student by the `x-user-id` header. The middleware sets this header after checking a token, but if no token is sent, it passes along whatever `x-user-id` the client wrote. Anyone can send `x-user-id: <someone's id>` to read that student's attendance or check them in.
 
 **Done when:** the middleware always deletes incoming `x-user-id` and `x-user-role` headers before (optionally) setting them from a verified token. Together with task 1, that is a small change in `src/middleware.ts`.
 
-> **Note:** task 1 already blocks the attack described here. Requests without a valid token are now rejected with `401`, and for valid tokens the middleware always overwrites `x-user-id` and `x-user-role` with the values from the token. Review and tick this task once someone confirms nothing else is needed.
+> **Status:** Done on `develop-cybsync`. `src/middleware.ts` now deletes any client-sent `x-user-id` and `x-user-role` headers on **every** `/api` request, including the public login routes, and only sets them again from a verified token. API routes can trust these headers.
 
 ### 3. Decide how students prove who they are
 
@@ -207,7 +207,7 @@ There are no tests. Start with the API routes (logins, middleware auth, scan, ch
 
 ## Suggested order of work
 
-1. **P0 tasks ~~1~~, 2 and 4.** These are small, contained changes, and the site shouldn't be shared until they're done.
+1. **P0 tasks ~~1~~, ~~2~~ and 4.** These are small, contained changes, and the site shouldn't be shared until they're done.
 2. **P0 task 3 and P1 task 5.** Decide how students log in, then connect both login flows and protect the pages.
 3. **P1 tasks 8 and 10.** Without events and students in the database, the rest of the app has no data to show.
 4. **P1 tasks 6, 7 and 9.** Connect the pages one at a time.
