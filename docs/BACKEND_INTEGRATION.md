@@ -39,6 +39,7 @@ The page then redirects to `/dashboard`.
 | --- | --- |
 | 400 | Username and password are required. |
 | 401 | Incorrect username or password. (Same message for an unknown username and a wrong password.) |
+| 429 | Too many failed login attempts. Try again in N minutes. |
 
 Passwords are stored as bcrypt hashes and never returned.
 
@@ -95,6 +96,6 @@ A missing or invalid session gets `401`, and the wrong role gets `403`. For allo
 
 ## Security notes
 
-- **Brute-force protection** on the login routes isn't done yet (task 18 in `docs/README.md`).
+- **Login rate limiting** (`src/lib/rateLimit.ts`): after **5 failed attempts for one account** or **20 from one IP address** within 15 minutes, logins are refused with `429` ("Try again in N minutes") until the window ends, even with the right password. A successful login resets that account's counter. Counters live in the `loginattempts` collection and MongoDB deletes them automatically when they expire. Student logins count a failed Google sign-in or a Student ID that doesn't match.
 - **Changing `JWT_SECRET`** logs everyone out immediately, which is useful if a token is ever leaked.
 - **Deleting a user or student** doesn't end their current session until it expires, but `/api/auth/me` returns `401` for them, so the sidebar sends them back to the login page.

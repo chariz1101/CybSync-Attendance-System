@@ -68,7 +68,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 - [x] 15. Record who submitted an event request
 - [x] 16. Store report attachments
 - [x] 17. Fix horizontal scrolling on phones
-- [ ] 18. Prevent brute-force attacks on login
+- [x] 18. Prevent brute-force attacks on login
 - [ ] 19. Add tests
 
 **🟢 P3: Low**
@@ -284,7 +284,11 @@ Tested at 390 px width (iPhone 14 size):
 - `/dashboard` scrolls **67 px** sideways.
 - On mobile, the menu button overlaps the page title. Add left padding to the header on small screens.
 
-### 18. Prevent brute-force attacks on login
+### 18. Prevent brute-force attacks on login ✅ Done
+
+> **Status:** Done. Both login routes allow 5 failed attempts per account and 20 per IP in 15 minutes, then return `429` with `Retry-After`. Counters are stored in MongoDB with automatic expiry, so they work across Vercel's server instances. See `src/lib/rateLimit.ts` and `docs/BACKEND_INTEGRATION.md`.
+
+> _Original description:_
 Add rate limiting to `/api/auth/council-login` and `/api/auth/student-login` (for example, a limit per IP using Vercel's firewall or a small in-database counter).
 
 ### 19. Add tests

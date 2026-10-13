@@ -5,6 +5,7 @@ import { Student } from "@/models/Student";
 import { signToken } from "@/lib/auth";
 import { GoogleAuthError, verifyGoogleSchoolAccount } from "@/lib/google";
 import { sessionExpiry, setSessionCookie } from "@/lib/session";
+import { checkLoginLimit, clearLoginFailures, loginLimitKeys, recordLoginFailure } from "@/lib/rateLimit";
 
 const schema = z.object({
   studentId: z.string().trim().min(1),
@@ -23,21 +24,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, message: "Student ID and Google sign-in are required." }, { status: 400 });
   }
 
+  await connectDB();
+  const limits = loginLimitKeys(req, "student", parsed.data.studentId);
+  const blocked = await checkLoginLimit([limits.account, limits.ip]);
+  if (blocked) return blocked;
+
   let email: string;
   try {
     ({ email } = await verifyGoogleSchoolAccount(parsed.data.credential));
   } catch (err) {
     if (err instanceof GoogleAuthError) {
+      await recordLoginFailure([limits.account, limits.ip]);
       return NextResponse.json({ success: false, message: err.message }, { status: err.status });
     }
     throw err;
   }
 
-  await connectDB();
   const student = await Student.findOne({ studentId: parsed.data.studentId });
   if (!student || student.email?.toLowerCase() !== email) {
+    await recordLoginFailure([limits.account, limits.ip]);
     return NextResponse.json({ success: false, message: MISMATCH_MESSAGE }, { status: 401 });
   }
+  await clearLoginFailures(limits.account);
   if (student.status !== "active") {
     return NextResponse.json({ success: false, message: "Student account is inactive or suspended" }, { status: 403 });
   }
