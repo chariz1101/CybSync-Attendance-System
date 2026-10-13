@@ -3,6 +3,7 @@
 import Sidebar from '@/components/Sidebar';
 import StatCard from '@/components/StatCard';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ErrorText, Field, Modal } from '@/components/ui';
 
 interface Student {
   id: string;
@@ -300,44 +301,6 @@ function CardButton({ student, onClick }: { student: Student; onClick: () => voi
   );
 }
 
-function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm p-0 sm:p-4" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onClick={(e) => e.stopPropagation()}
-        className={`bg-white w-full ${wide ? 'sm:max-w-3xl' : 'sm:max-w-lg'} rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto`}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-800" aria-label="Close">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function ErrorText({ children }: { children: React.ReactNode }) {
-  return (
-    <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-      {children}
-    </p>
-  );
-}
-
 /* ---------------- Import ---------------- */
 
 interface ImportResult {
@@ -627,16 +590,6 @@ function StudentFormModal({ student, onClose, onSaved }: { student: Student | nu
         </div>
       </form>
     </Modal>
-  );
-}
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="block text-sm font-medium text-gray-700 mb-1.5">{label}</span>
-      {children}
-      {hint && <span className="block text-xs text-gray-500 mt-1">{hint}</span>}
-    </label>
   );
 }
 

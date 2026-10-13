@@ -1,29 +1,14 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Attendance } from "@/models/Attendance";
+import "@/models/Event";
+import { currentUser } from "@/lib/apiAuth";
+import { studentHistory, studentStats } from "@/lib/studentAttendance";
 
+// GET /api/student/attendance: the logged-in student's full attendance history
 export async function GET(req: Request) {
+  const { id } = currentUser(req);
   await connectDB();
-  const studentId = req.headers.get("x-user-id");
-  if (!studentId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const totalEvents = await Attendance.countDocuments({ student: studentId });
-  const lateAttendance = await Attendance.countDocuments({ student: studentId, status: "late" });
-  const onTimeAttendance = await Attendance.countDocuments({ student: studentId, status: "on-time" });
-
-  const attendanceHistory = await Attendance.find({ student: studentId })
-    .populate("event")
-    .sort({ checkInTime: -1 });
-
-  return NextResponse.json({
-    stats: { totalEvents, lateAttendance, onTimeAttendance },
-    attendanceHistory: attendanceHistory.map((a) => ({
-      id: a.id,
-      type: a.type,
-      event: (a.event as unknown as { name?: string } | null)?.name,
-      date: a.checkInTime.toDateString(),
-      time: a.checkInTime.toTimeString().slice(0, 5),
-      status: a.status,
-    })),
-  });
+  const records = await Attendance.find({ student: id }).populate("event").sort({ checkInTime: -1 }).limit(1000);
+  return NextResponse.json({ stats: studentStats(records), attendanceHistory: studentHistory(records) });
 }

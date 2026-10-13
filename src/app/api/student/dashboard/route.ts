@@ -2,41 +2,21 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Attendance } from "@/models/Attendance";
 import { Event } from "@/models/Event";
+import { currentUser } from "@/lib/apiAuth";
+import { toEventJson } from "@/lib/events";
+import { studentHistory, studentStats } from "@/lib/studentAttendance";
 
+// GET /api/student/dashboard: stats, the 10 latest records, and upcoming events
 export async function GET(req: Request) {
+  const { id } = currentUser(req);
   await connectDB();
-  const studentId = req.headers.get("x-user-id");
-  if (!studentId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const totalEvents = await Attendance.countDocuments({ student: studentId });
-  const onTimeCount = await Attendance.countDocuments({ student: studentId, status: "on-time" });
-  const lateCount = await Attendance.countDocuments({ student: studentId, status: "late" });
-  const total = onTimeCount + lateCount || 1;
-
-  const attendanceHistory = await Attendance.find({ student: studentId })
-    .populate("event")
-    .sort({ checkInTime: -1 })
-    .limit(20);
-
-  const upcomingEvents = await Event.find({ status: "upcoming" }).sort({ date: 1 }).limit(5);
-
+  const [records, upcoming] = await Promise.all([
+    Attendance.find({ student: id }).populate("event").sort({ checkInTime: -1 }).limit(1000),
+    Event.find({ status: { $in: ["upcoming", "active"] } }).sort({ date: 1, startTime: 1 }).limit(5),
+  ]);
   return NextResponse.json({
-    stats: {
-      totalEvents,
-      lateAttendanceRate: Math.round((lateCount / total) * 100),
-      onTimeAttendanceRate: Math.round((onTimeCount / total) * 100),
-    },
-    attendanceHistory: attendanceHistory.map((a) => {
-      const event = a.event as unknown as { name?: string; date?: Date } | null;
-      return {
-        id: a.id,
-        type: a.type,
-        event: event?.name,
-        date: event?.date ? event.date.toDateString() : "",
-        time: a.checkInTime.toTimeString().slice(0, 5),
-        status: a.status,
-      };
-    }),
-    upcomingEvents: upcomingEvents.map((e) => ({ id: e.id, name: e.name, date: e.date?.toDateString() || "" })),
+    stats: studentStats(records),
+    attendanceHistory: studentHistory(records.slice(0, 10)),
+    upcomingEvents: upcoming.map(toEventJson),
   });
 }

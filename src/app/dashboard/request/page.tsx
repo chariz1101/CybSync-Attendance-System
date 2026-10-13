@@ -1,7 +1,10 @@
 'use client';
 
 import Sidebar from '@/components/Sidebar';
+import Link from 'next/link';
 import { useState } from 'react';
+import { api } from '@/lib/api';
+import { ErrorText, PageHeader, SuccessText } from '@/components/ui';
 
 // Types for backend integration
 interface EventRequest {
@@ -10,6 +13,7 @@ interface EventRequest {
   timeStart: string;
   dateEnd: string;
   timeEnd: string;
+  location: string;
   shortDescription: string;
 }
 
@@ -21,8 +25,10 @@ export default function Request() {
     timeStart: '',
     dateEnd: '',
     timeEnd: '',
+    location: '',
     shortDescription: '',
   });
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<EventRequest>>({});
@@ -82,60 +88,18 @@ export default function Request() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    setResult(null);
     if (!validateForm()) {
       return;
     }
 
     setIsSubmitting(true);
-
-    // Backend integration point
-    console.log('Event Request Submitted:', formData);
-
     try {
-      // Add your API call here
-      // Example:
-      // const response = await fetch('/api/events/request', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      //   },
-      //   body: JSON.stringify(formData),
-      // });
-      //
-      // const data = await response.json();
-      //
-      // if (response.ok) {
-      //   alert('Event request submitted successfully!');
-      //   // Reset form
-      //   setFormData({
-      //     eventTitle: '',
-      //     dateStart: '',
-      //     timeStart: '',
-      //     dateEnd: '',
-      //     timeEnd: '',
-      //     shortDescription: '',
-      //   });
-      // } else {
-      //   alert(data.message || 'Failed to submit request');
-      // }
-
-      // Temporary success message (remove when API is connected)
-      alert('Event request submitted successfully! (Demo mode - connect to backend)');
-      
-      // Reset form
-      setFormData({
-        eventTitle: '',
-        dateStart: '',
-        timeStart: '',
-        dateEnd: '',
-        timeEnd: '',
-        shortDescription: '',
-      });
+      await api('/api/events/request', { method: 'POST', json: formData });
+      setResult({ ok: true, message: `Request for "${formData.eventTitle}" sent. An admin will review it on the Events page.` });
+      setFormData({ eventTitle: '', dateStart: '', timeStart: '', dateEnd: '', timeEnd: '', location: '', shortDescription: '' });
     } catch (error) {
-      console.error('Failed to submit event request:', error);
-      alert('An error occurred. Please try again.');
+      setResult({ ok: false, message: (error as Error).message });
     } finally {
       setIsSubmitting(false);
     }
@@ -148,20 +112,7 @@ export default function Request() {
 
       {/* Main Content */}
       <main className="flex-1 lg:ml-64">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="lg:ml-0 ml-12">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Request Event</h1>
-            </div>
-            <button className="p-3 hover:bg-gray-100 rounded-full transition-colors relative">
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-          </div>
-        </header>
+        <PageHeader title="Request Event" />
 
         {/* Content */}
         <div className="p-4 sm:p-8">
@@ -310,6 +261,22 @@ export default function Request() {
                 </div>
               </div>
 
+              {/* Location */}
+              <div>
+                <label htmlFor="location" className="block text-base font-medium text-gray-700 mb-2">
+                  Location
+                </label>
+                <input
+                  id="location"
+                  name="location"
+                  type="text"
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="e.g. University Gym"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
+                />
+              </div>
+
               {/* Short Description */}
               <div>
                 <label htmlFor="shortDescription" className="block text-base font-medium text-gray-700 mb-2">
@@ -341,6 +308,18 @@ export default function Request() {
                   Tip: Fill up everything for faster processing
                 </p>
               </div>
+
+              {result &&
+                (result.ok ? (
+                  <SuccessText>
+                    {result.message}{' '}
+                    <Link href="/dashboard/events" className="font-semibold underline">
+                      View requests
+                    </Link>
+                  </SuccessText>
+                ) : (
+                  <ErrorText>{result.message}</ErrorText>
+                ))}
 
               {/* Submit Button */}
               <div className="flex justify-end">

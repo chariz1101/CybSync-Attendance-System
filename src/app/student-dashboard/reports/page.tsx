@@ -1,488 +1,208 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import StudentSidebar from '@/components/StudentSidebar';
-import { useState } from 'react';
+import { Card, EmptyState, ErrorText, Field, inputClass, PageHeader, primaryButton, StatusPill, SuccessText } from '@/components/ui';
+import { api } from '@/lib/api';
+import { formatDate, formatDateTime } from '@/lib/format';
+import { MAX_FILE_BYTES, MAX_FILES, REPORT_TYPES, type toReportJson } from '@/lib/reports';
+import type { toEventJson } from '@/lib/events';
 
-// Types for backend integration
-interface ReportFormData {
-  eventTitle: string;
-  description: string;
-  attachments: File[];
-}
+type ReportJson = ReturnType<typeof toReportJson>;
+type EventJson = ReturnType<typeof toEventJson>;
+type ReportType = keyof typeof REPORT_TYPES;
 
-interface PreviousReport {
-  id: string;
-  eventTitle: string;
-  date: string; // Format: "10/01/2025"
-  message: string; // Preview of the description
-  status: 'resolved' | 'pending' | 'rejected';
-}
+const ACCEPTED_FILES = 'image/jpeg,image/png,image/webp,application/pdf';
 
 export default function StudentReports() {
-  // State for which section is expanded
-  const [expandedSection, setExpandedSection] = useState<'report-form' | 'previous' | null>(null);
-  
-  // Form state
-  const [formData, setFormData] = useState<ReportFormData>({
-    eventTitle: '',
-    description: '',
-    attachments: [],
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Partial<ReportFormData>>({});
+  const [reports, setReports] = useState<ReportJson[] | null>(null);
+  const [events, setEvents] = useState<EventJson[]>([]);
+  const [loadError, setLoadError] = useState('');
 
-  // Previous reports state
-  const [previousReports, setPreviousReports] = useState<PreviousReport[]>([]);
-  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [type, setType] = useState<ReportType>('excuse');
+  const [eventId, setEventId] = useState('');
+  const [message, setMessage] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  // Mock data for previous reports (replace with API call)
-  const mockPreviousReports: PreviousReport[] = [
-    {
-      id: '1',
-      eventTitle: 'University Hinampang [D1-SI-AM]',
-      date: '10/01/2025',
-      message: 'I have submitted a photo proof that I was present during the...',
-      status: 'resolved',
-    },
-    {
-      id: '2',
-      eventTitle: 'University Hinampang [D1-SI-AM]',
-      date: '10/01/2025',
-      message: 'I have submitted a photo proof that I was present during the...',
-      status: 'pending',
-    },
-    {
-      id: '3',
-      eventTitle: 'University Hinampang [D1-SI-AM]',
-      date: '10/01/2025',
-      message: 'I have submitted a photo proof that I was present during the...',
-      status: 'rejected',
-    },
-  ];
+  const load = useCallback(() => {
+    api<{ reports: ReportJson[]; events: EventJson[] }>('/api/student/reports')
+      .then((d) => {
+        setReports(d.reports);
+        setEvents(d.events);
+      })
+      .catch((e) => setLoadError(e.message));
+  }, []);
 
-  // Load previous reports when section is expanded
-  // useEffect(() => {
-  //   if (expandedSection === 'previous' && previousReports.length === 0) {
-  //     fetchPreviousReports();
-  //   }
-  // }, [expandedSection]);
+  useEffect(load, [load]);
 
-  // const fetchPreviousReports = async () => {
-  //   setIsLoadingReports(true);
-  //   try {
-  //     const token = localStorage.getItem('studentToken') || sessionStorage.getItem('studentToken');
-  //     const response = await fetch('/api/student/reports/history', {
-  //       method: 'GET',
-  //       headers: {
-  //         'Authorization': `Bearer ${token}`,
-  //         'Content-Type': 'application/json',
-  //       },
-  //     });
-  //
-  //     const data = await response.json();
-  //
-  //     if (response.ok) {
-  //       setPreviousReports(data.reports);
-  //     } else {
-  //       console.error('Failed to fetch reports:', data.message);
-  //     }
-  //   } catch (error) {
-  //     console.error('Error fetching reports:', error);
-  //   } finally {
-  //     setIsLoadingReports(false);
-  //   }
-  // };
-
-  // Toggle section expansion
-  const toggleSection = (section: 'report-form' | 'previous') => {
-    setExpandedSection(expandedSection === section ? null : section);
-  };
-
-  // Handle input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    // Clear error for this field
-    if (errors[name as keyof ReportFormData]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: undefined,
-      }));
+  const addFiles = (list: FileList | null) => {
+    if (!list) return;
+    const added = Array.from(list);
+    const tooBig = added.find((f) => f.size > MAX_FILE_BYTES);
+    if (tooBig) {
+      setResult({ ok: false, message: `"${tooBig.name}" is bigger than 2 MB. Take a smaller photo or compress the PDF.` });
+    } else {
+      setResult(null);
+      setFiles((prev) => [...prev, ...added].slice(0, MAX_FILES));
     }
+    if (fileInput.current) fileInput.current.value = '';
   };
 
-  // Handle file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      setFormData((prev) => ({
-        ...prev,
-        attachments: [...prev.attachments, ...Array.from(files)],
-      }));
-    }
-  };
-
-  // Remove attachment
-  const removeAttachment = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      attachments: prev.attachments.filter((_, i) => i !== index),
-    }));
-  };
-
-  // Validate form
-  const validateForm = (): boolean => {
-    const newErrors: Partial<ReportFormData> = {};
-
-    if (!formData.eventTitle.trim()) {
-      newErrors.eventTitle = 'Event title is required';
-    }
-    if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
+    setBusy(true);
+    setResult(null);
+    try {
+      const form = new FormData();
+      form.set('type', type);
+      form.set('eventId', eventId);
+      form.set('message', message);
+      files.forEach((f) => form.append('files', f));
+      await api('/api/student/reports', { method: 'POST', body: form });
+      setResult({ ok: true, message: 'Report sent. The council will review it, and you can follow its status below.' });
+      setMessage('');
+      setFiles([]);
+      setEventId('');
+      load();
+    } catch (err) {
+      setResult({ ok: false, message: (err as Error).message });
+    } finally {
+      setBusy(false);
     }
-
-    setIsSubmitting(true);
-
-    // Backend integration point
-    console.log('Report submitted:', formData);
-
-    // Example API call:
-    // try {
-    //   const token = localStorage.getItem('studentToken') || sessionStorage.getItem('studentToken');
-    //   const formDataToSend = new FormData();
-    //   formDataToSend.append('eventTitle', formData.eventTitle);
-    //   formDataToSend.append('description', formData.description);
-    //   formData.attachments.forEach((file, index) => {
-    //     formDataToSend.append(`attachment_${index}`, file);
-    //   });
-    //
-    //   const response = await fetch('/api/student/reports', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${token}`,
-    //     },
-    //     body: formDataToSend,
-    //   });
-    //
-    //   const data = await response.json();
-    //
-    //   if (response.ok) {
-    //     alert('Report submitted successfully!');
-    //     // Reset form
-    //     setFormData({
-    //       eventTitle: '',
-    //       description: '',
-    //       attachments: [],
-    //     });
-    //   } else {
-    //     alert(data.message || 'Failed to submit report');
-    //   }
-    // } catch (error) {
-    //   console.error('Report submission error:', error);
-    //   alert('An error occurred. Please try again.');
-    // } finally {
-    //   setIsSubmitting(false);
-    // }
-
-    // Temporary success message (remove when API is connected)
-    setTimeout(() => {
-      alert('Report submitted successfully! (Demo mode - connect to backend)');
-      setFormData({
-        eventTitle: '',
-        description: '',
-        attachments: [],
-      });
-      setIsSubmitting(false);
-    }, 1000);
   };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
       <StudentSidebar />
+      <main className="flex-1 lg:ml-64 min-w-0">
+        <PageHeader title="Reports" subtitle="Send an excuse letter, or tell the council about a mistake in your attendance" />
 
-      {/* Main Content */}
-      <main className="flex-1 lg:ml-64">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="lg:ml-0 ml-12">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Reports</h1>
-            </div>
-            <button className="p-3 hover:bg-gray-100 rounded-full transition-colors">
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </button>
-          </div>
-        </header>
+        <div className="p-4 sm:p-8 space-y-6">
+          {loadError && <ErrorText>{loadError}</ErrorText>}
 
-        {/* Content */}
-        <div className="p-4 sm:p-8">
-          {/* Report Sections */}
-          <div className="space-y-3 sm:space-y-4">
-            {/* Report Form */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden transition-all">
-              {/* Section Header - Clickable */}
-              <button
-                onClick={() => toggleSection('report-form')}
-                className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex-1 text-left">
-                  <h2 className="text-xl font-bold text-gray-900">Report Form</h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    This form is used to report a discrepancy in your attendance.
-                  </p>
+          <Card className="p-4 sm:p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">New report</h2>
+            <form onSubmit={submit} className="space-y-5">
+              <fieldset>
+                <legend className="block text-sm font-medium text-gray-700 mb-2">What is this about?</legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(Object.keys(REPORT_TYPES) as ReportType[]).map((t) => (
+                    <label
+                      key={t}
+                      className={`flex gap-3 p-4 border-2 rounded-xl cursor-pointer ${type === t ? 'border-blue-600 bg-blue-50' : 'border-gray-200'}`}
+                    >
+                      <input type="radio" name="type" value={t} checked={type === t} onChange={() => setType(t)} className="mt-1" />
+                      <span>
+                        <span className="block font-semibold text-gray-900">{REPORT_TYPES[t]}</span>
+                        <span className="block text-xs text-gray-600 mt-0.5">
+                          {t === 'excuse'
+                            ? 'You missed an event or were late for a valid reason.'
+                            : 'Your record is wrong or missing, e.g. you were scanned but it doesn’t show.'}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
-                <div className="ml-4">
-                  <svg
-                    className={`w-6 h-6 text-gray-600 transition-transform ${
-                      expandedSection === 'report-form' ? 'transform rotate-180' : ''
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </button>
+              </fieldset>
 
-              {/* Section Content - Expandable */}
-              {expandedSection === 'report-form' && (
-                <div className="border-t border-gray-200">
-                  <div className="p-4 sm:p-6">
-                    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-                      {/* Event Title */}
-                      <div>
-                        <label htmlFor="eventTitle" className="block text-base font-medium text-gray-700 mb-2">
-                          Event Title<span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <select
-                            id="eventTitle"
-                            name="eventTitle"
-                            value={formData.eventTitle}
-                            onChange={handleChange}
-                            className={`w-full px-4 py-3 border ${
-                              errors.eventTitle ? 'border-red-500' : 'border-gray-300'
-                            } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-gray-900 appearance-none cursor-pointer`}
-                          >
-                            <option value="">Enter Event Title</option>
-                            <option value="University Days 2026 - Day 1">University Days 2026 - Day 1</option>
-                            <option value="University Pagirimaw 2025">University Pagirimaw 2025</option>
-                            <option value="Tech Summit 2026">Tech Summit 2026</option>
-                            <option value="Other">Other</option>
-                          </select>
-                          <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
-                        {errors.eventTitle && (
-                          <p className="mt-1 text-sm text-red-500">{errors.eventTitle}</p>
-                        )}
-                      </div>
+              <Field label="Event">
+                <select value={eventId} onChange={(e) => setEventId(e.target.value)} required className={inputClass}>
+                  <option value="">{events.length ? 'Choose the event' : 'No events yet'}</option>
+                  {events.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name} ({formatDate(e.date)})
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
-                      {/* Description */}
-                      <div>
-                        <label htmlFor="description" className="block text-base font-medium text-gray-700 mb-2">
-                          Description<span className="text-red-500">*</span>
-                        </label>
-                        <textarea
-                          id="description"
-                          name="description"
-                          value={formData.description}
-                          onChange={handleChange}
-                          placeholder="Explain your grievance."
-                          rows={12}
-                          className={`w-full px-4 py-3 border ${
-                            errors.description ? 'border-red-500' : 'border-gray-300'
-                          } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400 resize-none`}
-                        />
-                        {errors.description && (
-                          <p className="mt-1 text-sm text-red-500">{errors.description}</p>
-                        )}
-                      </div>
+              <Field label="Description" hint={`${message.length}/2000`}>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  required
+                  maxLength={2000}
+                  rows={5}
+                  placeholder={type === 'excuse' ? 'Explain why you were absent or late.' : 'Explain what is wrong with your record.'}
+                  className={inputClass}
+                />
+              </Field>
 
-                      {/* Add Supporting Documents */}
-                      <div>
-                        <input
-                          type="file"
-                          id="file-upload"
-                          multiple
-                          accept="image/*,.pdf"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                        />
-                        <label
-                          htmlFor="file-upload"
-                          className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-blue-600 text-blue-600 font-semibold rounded-xl hover:bg-blue-50 transition-colors cursor-pointer"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          Add Supporting Documents
-                        </label>
-
-                        {/* Display uploaded files */}
-                        {formData.attachments.length > 0 && (
-                          <div className="mt-4 space-y-2">
-                            {formData.attachments.map((file, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                  </svg>
-                                  <span className="text-sm text-gray-700">{file.name}</span>
-                                  <span className="text-xs text-gray-500">
-                                    ({(file.size / 1024).toFixed(1)} KB)
-                                  </span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => removeAttachment(index)}
-                                  className="text-red-500 hover:text-red-700 transition-colors"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Tip */}
-                      <div className="text-sm text-gray-500">
-                        Tip: Fill up everything for faster processing
-                      </div>
-
-                      {/* Submit Button */}
-                      <div className="flex justify-end">
+              <div>
+                <span className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Attachments <span className="text-gray-500 font-normal">(optional, up to {MAX_FILES} photos or PDFs, 2 MB each)</span>
+                </span>
+                {files.length < MAX_FILES && (
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept={ACCEPTED_FILES}
+                    multiple
+                    onChange={(e) => addFiles(e.target.files)}
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                )}
+                {files.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {files.map((f, i) => (
+                      <li key={`${f.name}-${i}`} className="flex items-center justify-between gap-3 text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                        <span className="truncate text-gray-800">{f.name}</span>
+                        <span className="text-xs text-gray-500 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
                         <button
-                          type="submit"
-                          disabled={isSubmitting}
-                          className="w-full sm:w-auto px-8 sm:px-12 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-xl transition-colors shadow-lg disabled:cursor-not-allowed"
+                          type="button"
+                          onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                          className="text-red-600 font-semibold shrink-0"
+                          aria-label={`Remove ${f.name}`}
                         >
-                          {isSubmitting ? 'Submitting...' : 'Submit'}
+                          Remove
                         </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-            </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-            {/* Previous Reports */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden transition-all">
-              {/* Section Header - Clickable */}
-              <button
-                onClick={() => toggleSection('previous')}
-                className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex-1 text-left">
-                  <h2 className="text-xl font-bold text-gray-900">Previous Reports</h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Monitor your report here.
-                  </p>
-                </div>
-                <div className="ml-4">
-                  <svg
-                    className={`w-6 h-6 text-gray-600 transition-transform ${
-                      expandedSection === 'previous' ? 'transform rotate-180' : ''
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
+              {result && (result.ok ? <SuccessText>{result.message}</SuccessText> : <ErrorText>{result.message}</ErrorText>)}
+
+              <button type="submit" disabled={busy || !events.length} className={`${primaryButton} w-full sm:w-auto sm:px-10`}>
+                {busy ? 'Sending…' : 'Send report'}
               </button>
+            </form>
+          </Card>
 
-              {/* Section Content - Expandable */}
-              {expandedSection === 'previous' && (
-                <div className="border-t border-gray-200">
-                  <div className="p-4 sm:p-6">
-                    {isLoadingReports ? (
-                      <div className="text-center py-12">
-                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <p className="text-gray-500 mt-4">Loading reports...</p>
+          <Card className="overflow-hidden">
+            <h2 className="text-xl font-bold text-gray-900 p-4 sm:p-6 pb-0 sm:pb-0">Your reports</h2>
+            {reports && reports.length === 0 && <EmptyState title="You haven't sent any reports yet" />}
+            {reports && reports.length > 0 && (
+              <ul className="divide-y divide-gray-100 mt-2">
+                {reports.map((r) => (
+                  <li key={r.id} className="p-4 sm:p-6 space-y-1.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900">{r.event?.name ?? '(deleted event)'}</p>
+                        <p className="text-xs text-gray-500">
+                          {REPORT_TYPES[r.type]} · sent {formatDateTime(r.createdAt)}
+                          {r.attachments.length > 0 && ` · ${r.attachments.length} attachment${r.attachments.length > 1 ? 's' : ''}`}
+                        </p>
                       </div>
-                    ) : mockPreviousReports.length === 0 ? (
-                      <div className="text-center py-12 text-gray-500">
-                        <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <p className="text-lg font-medium">No reports found</p>
-                        <p className="text-sm mt-1">You haven&apos;t submitted any reports yet.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {mockPreviousReports.map((report) => (
-                          <div
-                            key={report.id}
-                            className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                              {/* Report Info */}
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-gray-900 mb-1">
-                                  {report.eventTitle}
-                                </h3>
-                                <p className="text-sm text-gray-600 break-words">
-                                  {report.date}| {report.message}
-                                </p>
-                              </div>
-
-                              {/* Status Badge */}
-                              <div className="flex-shrink-0">
-                                <span
-                                  className={`inline-block px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap ${
-                                    report.status === 'resolved'
-                                      ? 'text-green-600 bg-green-50'
-                                      : report.status === 'pending'
-                                      ? 'text-blue-600 bg-blue-50'
-                                      : 'text-red-600 bg-red-50'
-                                  }`}
-                                >
-                                  Status: {report.status === 'resolved' ? 'Resolved' : report.status === 'pending' ? 'Pending' : 'Rejected'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <StatusPill status={r.status} />
+                    </div>
+                    <p className="text-sm text-gray-700 whitespace-pre-line">{r.message}</p>
+                    {r.response && (
+                      <p className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                        <span className="font-semibold">Council reply:</span> {r.response}
+                      </p>
                     )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
         </div>
       </main>
     </div>
   );
 }
-
