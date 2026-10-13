@@ -1,25 +1,27 @@
 import { NextResponse } from "next/server";
 import { isValidObjectId } from "mongoose";
-import { connectDB } from "@/lib/db";
 import { Student } from "@/models/Student";
 import { Event } from "@/models/Event";
 import { Attendance } from "@/models/Attendance";
 import { scanSchema, toRecordJson } from "@/lib/attendance";
 import { isDuplicateKeyError } from "@/lib/apiAuth";
 import { attendanceStatus } from "@/lib/late";
+import { canUseEvent, notYourEvent, requireStaff } from "@/lib/staff";
 
 // POST /api/attendance/scan  { rfid, eventId, type: "AM"|"PM", action: "Sign In"|"Sign Out" }
 // `rfid` is the card number typed by the USB reader, or a Student ID typed by hand.
 export async function POST(req: Request) {
+  const staff = await requireStaff(req);
+  if (staff instanceof Response) return staff;
   const parsed = scanSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ success: false, message: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const { rfid, eventId, type, action } = parsed.data;
 
-  await connectDB();
   const event = isValidObjectId(eventId) ? await Event.findById(eventId) : null;
   if (!event) return NextResponse.json({ success: false, message: "Event not found" }, { status: 404 });
+  if (!canUseEvent(staff, event)) return notYourEvent();
   if (event.status !== "active") {
     return NextResponse.json({ success: false, message: "This event isn't running. Start it on the Events page first." }, { status: 400 });
   }

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { connectDB } from "@/lib/db";
 import { EventRequest } from "@/models/EventRequest";
-import { currentUserRef } from "@/lib/apiAuth";
+import { requireStaff, staffRef } from "@/lib/staff";
 
 const schema = z.object({
   eventTitle: z.string().trim().min(1, "Event title is required"),
@@ -14,14 +13,18 @@ const schema = z.object({
   shortDescription: z.string().trim().optional(),
 });
 
-// POST /api/events/request: a council member asks for an event to be added
+// POST /api/events/request: an organization asks the admin to add an event
 export async function POST(req: Request) {
+  const staff = await requireStaff(req);
+  if (staff instanceof Response) return staff;
+  if (staff.isAdmin) {
+    return NextResponse.json({ success: false, message: "Admins don't need to request events. Create them on the Events page." }, { status: 400 });
+  }
+
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ success: false, message: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-
-  await connectDB();
-  const created = await EventRequest.create({ ...parsed.data, requestedBy: await currentUserRef(req) });
+  const created = await EventRequest.create({ ...parsed.data, requestedBy: staffRef(staff) });
   return NextResponse.json({ success: true, requestId: created.id, message: "Event request submitted" }, { status: 201 });
 }

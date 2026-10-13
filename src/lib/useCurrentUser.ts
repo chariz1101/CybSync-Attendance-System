@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 export type CurrentUser = {
+  id?: string;
   role: "council" | "admin" | "student";
   name: string;
   username?: string;
@@ -23,7 +24,9 @@ export function useCurrentUser(loginPath: string) {
     fetch("/api/auth/me")
       .then(async (res) => {
         if (res.status === 401 || res.status === 403) {
-          window.location.href = loginPath;
+          // Expired session, or an account that was disabled or deleted. End the
+          // session first: a still-valid cookie would bounce the login page back here.
+          await signOut(loginPath);
           return;
         }
         if (res.ok && !cancelled) setUser(await res.json());

@@ -7,6 +7,7 @@ import StatCard from '@/components/StatCard';
 import { CourseDonut, YearCourseBars } from '@/components/charts';
 import { Card, EmptyState, ErrorText, PageHeader, StatusPill } from '@/components/ui';
 import { api } from '@/lib/api';
+import { useCurrentUser } from '@/lib/useCurrentUser';
 import { formatEventWhen } from '@/lib/format';
 import type { toEventJson } from '@/lib/events';
 import type { EventStats } from '@/lib/eventStats';
@@ -16,11 +17,13 @@ type DashboardData = Partial<EventStats> & {
   event: EventJson | null;
   stats: EventStats['stats'] | null;
   upcomingEvents: EventJson[];
+  pendingRequests: number;
 };
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState('');
+  const user = useCurrentUser('/');
 
   useEffect(() => {
     api<DashboardData>('/api/dashboard').then(setData).catch((e) => setError(e.message));
@@ -49,6 +52,22 @@ export default function Dashboard() {
 
         <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
           {error && <ErrorText>{error}</ErrorText>}
+
+          {!!data?.pendingRequests && (
+            <Link
+              href="/dashboard/events"
+              className="flex items-center justify-between gap-3 rounded-2xl border border-yellow-300 bg-yellow-50 px-5 py-4 text-yellow-900 hover:bg-yellow-100"
+            >
+              <span className="font-semibold">
+                {user?.role === 'admin'
+                  ? `${data.pendingRequests} event request${data.pendingRequests === 1 ? '' : 's'} waiting for your approval`
+                  : data.pendingRequests === 1
+                    ? 'Your event request is waiting for the admin'
+                    : `${data.pendingRequests} of your event requests are waiting for the admin`}
+              </span>
+              <span className="text-sm font-semibold underline shrink-0">{user?.role === 'admin' ? 'Review' : 'View'}</span>
+            </Link>
+          )}
 
           {data && !event && (
             <Card>

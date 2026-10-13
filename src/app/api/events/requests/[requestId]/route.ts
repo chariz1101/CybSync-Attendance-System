@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
-import { connectDB } from "@/lib/db";
 import { Event } from "@/models/Event";
 import { EventRequest } from "@/models/EventRequest";
-import { currentUserRef, requireAdmin } from "@/lib/apiAuth";
+import { requireStaff, staffRef } from "@/lib/staff";
 import { eventInputSchema, toEventJson, toRequestJson } from "@/lib/events";
 
 type Params = { params: Promise<{ requestId: string }> };
@@ -15,24 +14,24 @@ const schema = z.object({
 });
 
 // POST /api/events/requests/:id  { action: "approve" | "reject", notes? }  (admin only)
-// Approving creates the event (status "upcoming") from the request's details.
+// Approving creates the event (status "upcoming") from the request's details,
+// run by the organization that requested it.
 export async function POST(req: Request, { params }: Params) {
-  const denied = requireAdmin(req);
-  if (denied) return denied;
+  const staff = await requireStaff(req, { adminOnly: true });
+  if (staff instanceof Response) return staff;
 
   const { requestId } = await params;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ success: false, message: "Invalid input" }, { status: 400 });
   if (!isValidObjectId(requestId)) return NextResponse.json({ success: false, message: "Request not found" }, { status: 404 });
 
-  await connectDB();
   const request = await EventRequest.findById(requestId);
   if (!request) return NextResponse.json({ success: false, message: "Request not found" }, { status: 404 });
   if (request.status !== "pending") {
     return NextResponse.json({ success: false, message: `This request was already ${request.status}.` }, { status: 409 });
   }
 
-  const reviewer = await currentUserRef(req);
+  const reviewer = staffRef(staff);
   let event = null;
   if (parsed.data.action === "approve") {
     const details = eventInputSchema.safeParse({
@@ -50,7 +49,8 @@ export async function POST(req: Request, { params }: Params) {
         { status: 400 }
       );
     }
-    event = await Event.create({ ...details.data, request: request._id, createdBy: request.requestedBy });
+    // The requesting organization runs the event.
+    event = await Event.create({ ...details.data, request: request._id, createdBy: request.requestedBy, owner: request.requestedBy });
     request.event = event._id;
   }
 

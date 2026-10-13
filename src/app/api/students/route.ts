@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
+import { requireStaff } from "@/lib/staff";
 import { Student } from "@/models/Student";
 import { firstIssue, studentInputSchema, toStudentJson } from "@/lib/students";
 
@@ -11,6 +12,8 @@ function escapeRegex(s: string) {
 
 // GET /api/students?q=juan&card=linked|unlinked&page=1
 export async function GET(req: Request) {
+  const staff = await requireStaff(req);
+  if (staff instanceof Response) return staff;
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
   const card = searchParams.get("card");
@@ -46,6 +49,8 @@ export async function GET(req: Request) {
 
 // POST /api/students: add one student
 export async function POST(req: Request) {
+  const staff = await requireStaff(req);
+  if (staff instanceof Response) return staff;
   const body = await req.json().catch(() => null);
   const parsed = studentInputSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ success: false, message: firstIssue(parsed.error) }, { status: 400 });

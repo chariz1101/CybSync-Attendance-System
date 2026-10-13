@@ -19,6 +19,9 @@ const EventSchema = new Schema(
     description: { type: String, trim: true },
     request: { type: Types.ObjectId, ref: "EventRequest" },
     createdBy: { userId: String, name: String },
+    // The organization (council account) that runs this event: the requester for
+    // approved requests, or whoever the admin assigned. Absent = admin-run.
+    owner: { type: { userId: String, name: String }, default: undefined },
     startedAt: Date,
     endedAt: Date,
   },

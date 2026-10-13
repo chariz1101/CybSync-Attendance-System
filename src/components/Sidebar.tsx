@@ -9,7 +9,8 @@ export default function Sidebar() {
   const pathname = usePathname();
   const user = useCurrentUser('/');
   const userName = user?.name ?? '';
-  const userRole = user ? (user.role === 'admin' ? 'Admin Account' : 'Student Council Account') : '';
+  const userRole = user ? (user.role === 'admin' ? 'Admin' : 'Organization') : '';
+  const isAdmin = user?.role === 'admin';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -17,7 +18,9 @@ export default function Sidebar() {
     { name: 'Events', href: '/dashboard/events', icon: FlagIcon },
     { name: 'Attendance', href: '/dashboard/attendance', icon: CalendarIcon },
     { name: 'Students', href: '/dashboard/students', icon: UsersIcon },
-    { name: 'Request', href: '/dashboard/request', icon: DocumentIcon },
+    // Organizations request events; the admin approves them and manages accounts.
+    ...(user && !isAdmin ? [{ name: 'Request', href: '/dashboard/request', icon: DocumentIcon }] : []),
+    ...(isAdmin ? [{ name: 'Accounts', href: '/dashboard/accounts', icon: KeyIcon }] : []),
     { name: 'Past Events', href: '/dashboard/past-events', icon: ClockIcon },
     { name: 'Reports', href: '/dashboard/reports', icon: WarningIcon },
   ];
@@ -116,6 +119,14 @@ export default function Sidebar() {
 }
 
 // Icons as separate components
+function KeyIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+  );
+}
+
 function FlagIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">

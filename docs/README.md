@@ -26,7 +26,7 @@ This file is the overall to-do list. The other files in this folder are guides:
 | UI pages | ✅ All council and student pages are connected to real data |
 | Backend API | ✅ Events, attendance, students, reports and auth routes are complete |
 | Frontend ↔ backend | ✅ No demo data left |
-| Security | ⚠️ API routes require login with the right role, and students sign in with their school Google account + Student ID. Council accounts are created with `npm run seed:admin` (task 4). |
+| Security | ✅ Logins are role-checked and rate-limited; students sign in with their school Google account + Student ID; the admin creates and can disable organization accounts on the Accounts page. |
 | Mobile layout | ✅ No page scrolls sideways at 390 px |
 | Tests | ✅ 77 unit + API tests, run by GitHub Actions on every PR |
 
@@ -41,6 +41,7 @@ This file is the overall to-do list. The other files in this folder are guides:
 - **Student accounts are view-and-report only.** Students can see their own attendance and submit reports (excuse letters, or discrepancies they noticed in their record). They **cannot** check themselves in to events.
 - **Attendance is recorded only by the council's RFID scanner** (`POST /api/attendance/scan`).
 - **Students log in with their school Google account + Student ID** (task 3). Both must belong to the same student.
+- **Two kinds of staff accounts.** The **admin** is the "mother" account: it approves or rejects event requests, creates and assigns events, manages organization accounts (**Accounts** page), and sees everything. **Organization** accounts (orgs / student councils) request events and run only their own: starting and ending them, scanning attendance, and reviewing student reports about them. All accounts share one student list.
 
 ---
 
@@ -136,7 +137,7 @@ The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/s
 
 ### 4. Create the first council account ✅ Done
 
-> **Status:** Done on `develop-cybsync`. Run `npm run seed:admin` (script: `scripts/seed-admin.ts`) to create a council/admin account or reset a password. See "Creating Council Accounts" in the root `README.md`.
+> **Status:** Done on `develop-cybsync`. Run `npm run seed:admin` (script: `scripts/seed-admin.ts`) to create a council/admin account or reset a password. The first admin is created this way; organization accounts are now created on the admin's **Accounts** page. See "Accounts: admin and organizations" in the root `README.md`.
 >
 > _Original description:_
 

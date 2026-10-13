@@ -23,7 +23,7 @@ let council: Awaited<ReturnType<typeof makeUser>>;
 let event: Awaited<ReturnType<typeof makeEvent>>;
 beforeAll(async () => {
   council = await makeUser("council-reports", "council");
-  event = await makeEvent({ name: "University Days", status: "past" });
+  event = await makeEvent({ name: "University Days", status: "past", owner: { userId: council.id, name: "council-reports name" } });
 });
 
 describe("student reports", () => {
@@ -55,9 +55,9 @@ describe("student reports", () => {
     const [file] = sent.body.report.attachments;
 
     // Council sees it and can open the file; it's served exactly, with nosniff
-    const { body } = await json(await allReports());
+    const { body } = await json(await allReports(req("", { as: council })));
     expect(body.pendingReports.find((r: any) => r.id === sent.body.report.id).student.name).toBe("Maria Reyes");
-    const download = await attachment(req(""), params({ attachmentId: file.id }));
+    const download = await attachment(req("", { as: council }), params({ attachmentId: file.id }));
     expect(new Uint8Array(await download.arrayBuffer())).toEqual(PNG);
     expect(download.headers.get("content-type")).toBe("image/png");
     expect(download.headers.get("x-content-type-options")).toBe("nosniff");
