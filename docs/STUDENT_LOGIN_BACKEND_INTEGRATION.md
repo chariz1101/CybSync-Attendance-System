@@ -1,478 +1,133 @@
-# Student Login - Backend Integration Guide
-
-This document describes how to integrate the Student Login page with your backend API.
+# Student Login: Backend Integration Guide
 
 ## Overview
 
-The Student Login page allows students to authenticate using only their Student ID (no password required). This simplified authentication is designed for quick access to attendance tracking and event check-in features.
+Students log in with **two things**:
 
-## Data Structure
+1. their **Student ID** (e.g. `2023M1025`), and
+2. their **school Google account** ("Sign in with Google").
 
-### API Endpoint
+The login succeeds only when the Student ID belongs to the same email as the Google account. Knowing someone's Student ID isn't enough to log in as them.
+
+Student accounts are **view-and-report only**:
+
+- ✅ View their own attendance history and stats
+- ✅ Submit reports (excuse letters, or attendance discrepancies they noticed)
+- ❌ They **cannot** check themselves in to events. Attendance is recorded only by the council's RFID scanner.
+
+## How it works
 
 ```
-POST /api/auth/student-login
+Student                     Browser (student-login page)            Server (/api/auth/student-login)        Google
+   |  types Student ID  ─────────▶ |                                          |                                   |
+   |  clicks "Sign in with Google" ─▶ Google popup ─────────────────────────────────────────────────────────────▶ |
+   |                               | ◀────────────────────────────── ID token (signed JWT with email) ───────────── |
+   |                               | POST { studentId, credential } ────────▶ |                                   |
+   |                               |                                          | verify token signature + audience ▶|
+   |                               |                                          | check email verified + school domain
+   |                               |                                          | find Student by studentId
+   |                               |                                          | student.email == Google email?
+   |                               | ◀──────────── { token, student } ──────── |
+   |                               | store token, go to /student-dashboard    |
 ```
 
-### Request Headers
+Code:
+
+| Part | File |
+| --- | --- |
+| Login page (Student ID field + Google button) | `src/app/student-login/page.tsx` |
+| Login API route | `src/app/api/auth/student-login/route.ts` |
+| Google token verification | `src/lib/google.ts` |
+
+## API
+
+### `POST /api/auth/student-login`
+
+Public route, so no `Authorization` header is needed.
+
+**Request body**
 
 ```json
 {
-  "Content-Type": "application/json"
+  "studentId": "2023M1025",
+  "credential": "<Google ID token from Google Identity Services>"
 }
 ```
 
-### Request Body
-
-```typescript
-interface StudentLoginRequest {
-  studentId: string; // Student ID (e.g., "2022M0000")
-}
-```
-
-### Example Request
-
-```json
-{
-  "studentId": "2022M0000"
-}
-```
-
-### Response Format
-
-**Success Response (200 OK):**
-
-```typescript
-interface StudentLoginResponse {
-  success: true;
-  token: string; // JWT token for authentication
-  student: {
-    id: string;
-    studentId: string;
-    name: string;
-    course: string;
-    year: string;
-    section: string;
-    email: string;
-  };
-  message: string;
-}
-```
-
-**Example Success Response:**
+**Success (200)**
 
 ```json
 {
   "success": true,
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token": "<CybSync JWT, role: student>",
   "student": {
-    "id": "student_123",
-    "studentId": "2022M0000",
-    "name": "Dela Cruz, Juan Felipe J.",
+    "id": "665f...",
+    "studentId": "2023M1025",
+    "name": "Juan Dela Cruz",
     "course": "BSCS",
-    "year": "4A",
-    "section": "AI",
-    "email": "juan.delacruz@example.edu"
+    "year": "3",
+    "section": "B",
+    "email": "juan.delacruz@<school domain>"
   },
   "message": "Login successful"
 }
 ```
 
-**Error Response (401 Unauthorized):**
+The page stores `token` and `student` as `studentToken` / `studentInfo`. They go in `localStorage` if "Remember me" is ticked, otherwise in `sessionStorage`. All student API calls must send `Authorization: Bearer <token>`.
 
-```json
-{
-  "success": false,
-  "message": "Student ID not found"
-}
+**Errors**
+
+| Status | Message | When |
+| --- | --- | --- |
+| 400 | Student ID and Google sign-in are required. | Missing `studentId` or `credential` |
+| 401 | Google sign-in failed. Please try again. | Google token is invalid, expired, issued for another app, or the email isn't verified |
+| 403 | Please sign in with your school Google account. | The Google account isn't in `ALLOWED_EMAIL_DOMAIN` (e.g. a personal Gmail) |
+| 401 | That Student ID doesn't match your Google account. | The ID doesn't exist **or** belongs to a different email. Both cases use the same message so the form can't be used to discover which IDs exist. |
+| 403 | Student account is inactive or suspended | `Student.status` isn't `active` |
+
+## What the server checks
+
+1. The Google ID token's signature is valid and was issued for **our** Google client ID (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`).
+2. `email_verified` is true.
+3. The token's Workspace domain (`hd`) **and** the email domain both equal `ALLOWED_EMAIL_DOMAIN`.
+4. A `Student` with that `studentId` exists and its `email` matches the Google email (case-insensitive).
+5. The student's `status` is `active`.
+
+If `NEXT_PUBLIC_GOOGLE_CLIENT_ID` or `ALLOWED_EMAIL_DOMAIN` isn't set, every student login is refused.
+
+## Setup
+
+### 1. Create a Google OAuth client ID
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create (or pick) a project. Ideally use one owned by the school or org account, not a personal one.
+2. **APIs & Services → OAuth consent screen**: choose **Internal** if the project belongs to the school's Google Workspace (only school accounts can sign in). Otherwise choose **External** and fill in the app name and support email.
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
+   - Application type: **Web application**
+   - **Authorized JavaScript origins**: add every URL the site runs on, for example:
+     - `http://localhost:3000`
+     - `https://<your-project>.vercel.app`
+     - any custom domain
+   - No redirect URIs are needed.
+4. Copy the **Client ID** (it ends in `.apps.googleusercontent.com`). It isn't a secret.
+
+> Vercel preview deployments get a new URL for each branch. Google doesn't allow wildcard origins, so test Google sign-in on `localhost` or on the production URL, or add specific preview URLs as needed.
+
+### 2. Set environment variables
+
+Locally in `.env.local`, and in **Vercel → Project → Settings → Environment Variables**:
+
+```bash
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
+ALLOWED_EMAIL_DOMAIN=<your school email domain, e.g. myschool.edu.ph>
 ```
 
-**Error Response (403 Forbidden):**
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID` is built into the page, so **redeploy after setting or changing it**.
 
-```json
-{
-  "success": false,
-  "message": "Student account is inactive or suspended"
-}
-```
+### 3. Make sure student records have the right email
 
-## Implementation Steps
-
-### 1. Update the Component
-
-In `src/app/student-login/page.tsx`, uncomment and configure the API call:
-
-```typescript
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsLoading(true);
-
-  try {
-    const response = await fetch("/api/auth/student-login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ studentId }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      // Store token and student info
-      if (rememberMe) {
-        localStorage.setItem("studentToken", data.token);
-        localStorage.setItem("studentInfo", JSON.stringify(data.student));
-      } else {
-        sessionStorage.setItem("studentToken", data.token);
-        sessionStorage.setItem("studentInfo", JSON.stringify(data.student));
-      }
-
-      // Redirect to student dashboard
-      window.location.href = "/student-dashboard";
-    } else {
-      alert(data.message || "Invalid Student ID");
-    }
-  } catch (error) {
-    console.error("Login error:", error);
-    alert("An error occurred. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
-```
-
-### 2. Backend Requirements
-
-Your backend should:
-
-1. **Validate Student ID**: Check if the student ID exists in the database
-2. **Verify Status**: Ensure the student account is active
-3. **Generate Token**: Create a JWT token with student information
-4. **Log Activity**: Record the login attempt for security monitoring
-5. **Response**: Return student data and authentication token
-
-### 3. Database Schema
-
-```sql
--- Students table
-CREATE TABLE students (
-  id VARCHAR PRIMARY KEY,
-  student_id VARCHAR NOT NULL UNIQUE,
-  name VARCHAR NOT NULL,
-  course VARCHAR NOT NULL,
-  year VARCHAR NOT NULL,
-  section VARCHAR,
-  email VARCHAR NOT NULL UNIQUE,
-  status VARCHAR DEFAULT 'active', -- 'active', 'inactive', 'suspended'
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Student login logs table (optional, for security)
-CREATE TABLE student_login_logs (
-  id VARCHAR PRIMARY KEY,
-  student_id VARCHAR REFERENCES students(id),
-  login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  ip_address VARCHAR,
-  user_agent TEXT
-);
-```
-
-### 4. Backend Logic Example (Python/Flask)
-
-```python
-import jwt
-from datetime import datetime, timedelta
-from flask import request, jsonify
-
-@app.route('/api/auth/student-login', methods=['POST'])
-def student_login():
-    data = request.get_json()
-    student_id = data.get('studentId')
-
-    # Validate input
-    if not student_id:
-        return jsonify({
-            'success': False,
-            'message': 'Student ID is required'
-        }), 400
-
-    # Find student in database
-    student = db.query("""
-        SELECT id, student_id, name, course, year, section, email, status
-        FROM students
-        WHERE student_id = ?
-    """, student_id)
-
-    if not student:
-        return jsonify({
-            'success': False,
-            'message': 'Student ID not found'
-        }), 401
-
-    # Check if account is active
-    if student.status != 'active':
-        return jsonify({
-            'success': False,
-            'message': 'Student account is inactive or suspended'
-        }), 403
-
-    # Generate JWT token
-    token_payload = {
-        'student_id': student.id,
-        'studentId': student.student_id,
-        'role': 'student',
-        'exp': datetime.utcnow() + timedelta(hours=24)  # Token expires in 24 hours
-    }
-    token = jwt.encode(token_payload, app.config['SECRET_KEY'], algorithm='HS256')
-
-    # Log the login attempt (optional)
-    db.execute("""
-        INSERT INTO student_login_logs (student_id, ip_address, user_agent)
-        VALUES (?, ?, ?)
-    """, student.id, request.remote_addr, request.headers.get('User-Agent'))
-
-    # Return success response
-    return jsonify({
-        'success': True,
-        'token': token,
-        'student': {
-            'id': student.id,
-            'studentId': student.student_id,
-            'name': student.name,
-            'course': student.course,
-            'year': student.year,
-            'section': student.section,
-            'email': student.email
-        },
-        'message': 'Login successful'
-    }), 200
-```
-
-### 5. Backend Logic Example (Node.js/Express)
-
-```javascript
-const jwt = require("jsonwebtoken");
-
-app.post("/api/auth/student-login", async (req, res) => {
-  const { studentId } = req.body;
-
-  // Validate input
-  if (!studentId) {
-    return res.status(400).json({
-      success: false,
-      message: "Student ID is required",
-    });
-  }
-
-  try {
-    // Find student in database
-    const student = await db.query(
-      "SELECT id, student_id, name, course, year, section, email, status FROM students WHERE student_id = ?",
-      [studentId]
-    );
-
-    if (!student) {
-      return res.status(401).json({
-        success: false,
-        message: "Student ID not found",
-      });
-    }
-
-    // Check if account is active
-    if (student.status !== "active") {
-      return res.status(403).json({
-        success: false,
-        message: "Student account is inactive or suspended",
-      });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        student_id: student.id,
-        studentId: student.student_id,
-        role: "student",
-      },
-      process.env.SECRET_KEY,
-      { expiresIn: "24h" }
-    );
-
-    // Log the login attempt (optional)
-    await db.execute(
-      "INSERT INTO student_login_logs (student_id, ip_address, user_agent) VALUES (?, ?, ?)",
-      [student.id, req.ip, req.headers["user-agent"]]
-    );
-
-    // Return success response
-    res.status(200).json({
-      success: true,
-      token: token,
-      student: {
-        id: student.id,
-        studentId: student.student_id,
-        name: student.name,
-        course: student.course,
-        year: student.year,
-        section: student.section,
-        email: student.email,
-      },
-      message: "Login successful",
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({
-      success: false,
-      message: "An error occurred during login",
-    });
-  }
-});
-```
-
-## Security Considerations
-
-### 1. Student ID Format Validation
-
-```python
-import re
-
-def validate_student_id(student_id):
-    # Example format: 2022M0000 (Year + M + 4 digits)
-    pattern = r'^\d{4}M\d{4}$'
-    return bool(re.match(pattern, student_id))
-```
-
-### 2. Rate Limiting
-
-Implement rate limiting to prevent brute force attacks:
-
-```python
-from flask_limiter import Limiter
-
-limiter = Limiter(app, key_func=lambda: request.remote_addr)
-
-@app.route('/api/auth/student-login', methods=['POST'])
-@limiter.limit("5 per minute")  # Max 5 login attempts per minute
-def student_login():
-    # ... login logic
-```
-
-### 3. Account Lockout
-
-Lock accounts after multiple failed login attempts:
-
-```python
-# Track failed attempts
-failed_attempts = db.query(
-    "SELECT COUNT(*) FROM student_login_logs WHERE student_id = ? AND success = FALSE AND login_at > ?",
-    student.id,
-    datetime.now() - timedelta(minutes=15)
-)
-
-if failed_attempts >= 5:
-    return jsonify({
-        'success': False,
-        'message': 'Account temporarily locked due to multiple failed attempts'
-    }), 403
-```
-
-## Session Management
-
-### Token Storage
-
-- **Remember Me Checked**: Store in `localStorage` (persists across browser sessions)
-- **Remember Me Unchecked**: Store in `sessionStorage` (cleared when browser closes)
-
-### Token Validation
-
-For subsequent API requests, include the token in headers:
-
-```typescript
-const token =
-  localStorage.getItem("studentToken") ||
-  sessionStorage.getItem("studentToken");
-
-fetch("/api/student/attendance", {
-  headers: {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  },
-});
-```
-
-### Backend Token Verification
-
-```python
-from functools import wraps
-import jwt
-
-def require_student_auth(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        token = request.headers.get('Authorization', '').replace('Bearer ', '')
-
-        if not token:
-            return jsonify({'message': 'Token is missing'}), 401
-
-        try:
-            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-
-            # Verify role is student
-            if payload.get('role') != 'student':
-                return jsonify({'message': 'Invalid token'}), 401
-
-            # Attach student info to request
-            request.student_id = payload.get('student_id')
-            request.studentId = payload.get('studentId')
-
-        except jwt.ExpiredSignatureError:
-            return jsonify({'message': 'Token has expired'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'message': 'Invalid token'}), 401
-
-        return f(*args, **kwargs)
-
-    return decorated_function
-
-# Usage
-@app.route('/api/student/attendance', methods=['GET'])
-@require_student_auth
-def get_student_attendance():
-    student_id = request.student_id
-    # ... fetch attendance data
-```
-
-## Error Handling
-
-Handle these common errors:
-
-- **400 Bad Request**: Missing or invalid Student ID format
-- **401 Unauthorized**: Student ID not found
-- **403 Forbidden**: Account inactive, suspended, or locked
-- **429 Too Many Requests**: Rate limit exceeded
-- **500 Internal Server Error**: Database or server error
+Each `Student` document's `email` must be the student's **school Google email**, because that's what the login matches against. Students whose record has a missing or wrong email can't log in until it's fixed. (Task 10 in `docs/README.md` covers importing students.)
 
 ## Testing
 
-Test with various scenarios:
-
-1. Valid Student ID
-2. Invalid Student ID
-3. Inactive student account
-4. Suspended student account
-5. Malformed Student ID format
-6. Missing Student ID
-7. Rate limit exceeded
-8. Remember me checked/unchecked
-
-## Notes
-
-- Student login uses only Student ID (no password)
-- Implement additional security measures (rate limiting, account lockout)
-- JWT tokens should have reasonable expiration times (recommended: 24 hours)
-- Consider implementing 2FA or email verification for sensitive operations
-- Log all login attempts for security auditing
-- Student ID format should match your institution's format
-- Token should include minimal information (ID, role, expiration)
-- Frontend validates Student ID format before sending to backend
+- Google sign-in can't be fully automated without a real Google account. To test manually, run `npm run dev` with the two variables set, open `http://localhost:3000/student-login`, enter a Student ID that exists in your database with your school email, and click **Sign in with Google**.
+- Try the failure cases too: someone else's Student ID, a personal Gmail account, and an inactive student.

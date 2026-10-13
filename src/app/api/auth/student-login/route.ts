@@ -3,19 +3,42 @@ import { z } from "zod";
 import { connectDB } from "@/lib/db";
 import { Student } from "@/models/Student";
 import { signToken } from "@/lib/auth";
+import { GoogleAuthError, verifyGoogleSchoolAccount } from "@/lib/google";
 
-const schema = z.object({ studentId: z.string().min(1) });
+const schema = z.object({
+  studentId: z.string().trim().min(1),
+  credential: z.string().min(1), // Google Sign-In ID token
+});
+
+// Same message whether the ID doesn't exist or belongs to someone else, so the
+// login form can't be used to discover which Student IDs are registered.
+const MISMATCH_MESSAGE = "That Student ID doesn't match your Google account.";
 
 export async function POST(req: Request) {
-  await connectDB();
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  if (!parsed.success) {
+    return NextResponse.json({ success: false, message: "Student ID and Google sign-in are required." }, { status: 400 });
+  }
 
+  let email: string;
+  try {
+    ({ email } = await verifyGoogleSchoolAccount(parsed.data.credential));
+  } catch (err) {
+    if (err instanceof GoogleAuthError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: err.status });
+    }
+    throw err;
+  }
+
+  await connectDB();
   const student = await Student.findOne({ studentId: parsed.data.studentId });
-  if (!student) return NextResponse.json({ success: false, message: "Student ID not found" }, { status: 401 });
-  if (student.status !== "active")
+  if (!student || student.email?.toLowerCase() !== email) {
+    return NextResponse.json({ success: false, message: MISMATCH_MESSAGE }, { status: 401 });
+  }
+  if (student.status !== "active") {
     return NextResponse.json({ success: false, message: "Student account is inactive or suspended" }, { status: 403 });
+  }
 
   const token = signToken({ sub: student.id, role: "student" });
   return NextResponse.json({
