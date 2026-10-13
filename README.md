@@ -51,13 +51,17 @@ Create a `.env.local` file (it is git-ignored) for local development:
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<db>
 JWT_SECRET=<long random string>
 TOKEN_EXPIRY=1d   # optional, defaults to 1d
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=<id>.apps.googleusercontent.com   # student Google sign-in
+ALLOWED_EMAIL_DOMAIN=<your school email domain>                # only these accounts can sign in
 ```
+
+See `env.example` for details, and `docs/STUDENT_LOGIN_BACKEND_INTEGRATION.md` for how to create the Google client ID.
 
 ### Deploying to Vercel
 
 1. Push the repository to GitHub.
 2. In Vercel, choose **Add New → Project** and import this repository. Vercel detects Next.js automatically; keep the default build settings.
-3. Under **Environment Variables**, add `MONGODB_URI` and `JWT_SECRET` (and `TOKEN_EXPIRY` if you want a different expiry).
+3. Under **Environment Variables**, add `MONGODB_URI`, `JWT_SECRET`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID` and `ALLOWED_EMAIL_DOMAIN` (and `TOKEN_EXPIRY` if you want a different expiry). Also add your Vercel URL to the Google client's **Authorized JavaScript origins**.
 4. Click **Deploy**. Every push to the default branch redeploys production, and other branches get preview URLs.
 
 If the database is MongoDB Atlas, allow connections from Vercel under **Network Access** (for example `0.0.0.0/0`, since Vercel does not use fixed IPs on the Hobby plan).

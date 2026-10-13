@@ -1,60 +1,84 @@
 'use client';
 
 import Link from "next/link";
-import { useState } from "react";
+import Script from "next/script";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+// Minimal typing for the Google Identity Services script.
+type GoogleCredentialResponse = { credential: string };
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize(options: { client_id: string; callback: (response: GoogleCredentialResponse) => void }): void;
+          renderButton(parent: HTMLElement, options: Record<string, unknown>): void;
+        };
+      };
+    };
+  }
+}
 
 export default function StudentLogin() {
   const [studentId, setStudentId] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [googleReady, setGoogleReady] = useState(false);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // The Google callback is registered once, so read the latest form values from refs.
+  const studentIdRef = useRef(studentId);
+  const rememberMeRef = useRef(rememberMe);
+  studentIdRef.current = studentId;
+  rememberMeRef.current = rememberMe;
+
+  const handleGoogleCredential = useCallback(async ({ credential }: GoogleCredentialResponse) => {
+    const id = studentIdRef.current.trim();
+    if (!id) {
+      setError('Enter your Student ID first, then sign in with Google.');
+      return;
+    }
+
+    setError('');
     setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/student-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: id, credential }),
+      });
+      const data = await response.json();
 
-    // Backend integration point
-    console.log('Student login attempt:', { studentId, rememberMe });
+      if (!response.ok) {
+        setError(data.message || 'Login failed. Please try again.');
+        return;
+      }
 
-    // Example API call:
-    // try {
-    //   const response = await fetch('/api/auth/student-login', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({ studentId }),
-    //   });
-    //
-    //   const data = await response.json();
-    //
-    //   if (response.ok) {
-    //     // Store token and student info
-    //     if (rememberMe) {
-    //       localStorage.setItem('studentToken', data.token);
-    //       localStorage.setItem('studentId', studentId);
-    //     } else {
-    //       sessionStorage.setItem('studentToken', data.token);
-    //       sessionStorage.setItem('studentId', studentId);
-    //     }
-    //     
-    //     // Redirect to student dashboard
-    //     window.location.href = '/student-dashboard';
-    //   } else {
-    //     alert(data.message || 'Invalid Student ID');
-    //   }
-    // } catch (error) {
-    //   console.error('Login error:', error);
-    //   alert('An error occurred. Please try again.');
-    // } finally {
-    //   setIsLoading(false);
-    // }
-
-    // Temporary success message (remove when API is connected)
-    setTimeout(() => {
-      alert('Student login successful! (Demo mode - connect to backend)');
+      const storage = rememberMeRef.current ? localStorage : sessionStorage;
+      storage.setItem('studentToken', data.token);
+      storage.setItem('studentInfo', JSON.stringify(data.student));
+      window.location.href = '/student-dashboard';
+    } catch {
+      setError('An error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
-    }, 1000);
-  };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!googleReady || !GOOGLE_CLIENT_ID || !window.google || !googleButtonRef.current) return;
+    window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+    window.google.accounts.id.renderButton(googleButtonRef.current, {
+      theme: 'outline',
+      size: 'large',
+      shape: 'pill',
+      text: 'signin_with',
+      width: 320,
+    });
+  }, [googleReady, handleGoogleCredential]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0000FF] px-4 py-8">
@@ -89,11 +113,11 @@ export default function StudentLogin() {
           Student Login
         </h1>
         <p className="text-center text-gray-600 mb-8">
-          Enter Your Student ID
+          Enter your Student ID, then sign in with your school Google account
         </p>
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-5">
           {/* Student ID Field */}
           <div>
             <label htmlFor="studentId" className="block text-sm font-medium text-gray-700 mb-2">
@@ -126,7 +150,7 @@ export default function StudentLogin() {
               />
             </div>
             <p className="mt-2 text-xs text-gray-500">
-              Enter your Student ID to access attendance system
+              It must match the student record linked to your school email
             </p>
           </div>
 
@@ -144,40 +168,26 @@ export default function StudentLogin() {
             </label>
           </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3.5 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
+          {/* Google Sign-In */}
+          <div className="flex flex-col items-center gap-3">
+            {GOOGLE_CLIENT_ID ? (
               <>
-                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Signing In...
+                <div ref={googleButtonRef} className={isLoading ? 'pointer-events-none opacity-50' : ''} />
+                {isLoading && <p className="text-sm text-gray-600">Signing in...</p>}
               </>
             ) : (
-              <>
-                <svg 
-                  className="w-5 h-5" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" 
-                  />
-                </svg>
-                Sign In
-              </>
+              <p className="text-sm text-red-600 text-center">
+                Google sign-in isn&apos;t configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID.
+              </p>
             )}
-          </button>
-        </form>
+          </div>
+
+          {error && (
+            <p role="alert" className="text-sm text-red-600 text-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              {error}
+            </p>
+          )}
+        </div>
 
         {/* Council Login Link */}
         <div className="mt-6 text-center">
@@ -189,6 +199,8 @@ export default function StudentLogin() {
           </p>
         </div>
       </div>
+
+      <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={() => setGoogleReady(true)} />
 
       {/* Footer */}
       <footer className="mt-8 text-white text-sm">

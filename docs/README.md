@@ -2,7 +2,7 @@
 
 _Evaluated: October 13, 2026, on `main` at commit `14f1570` (Next.js 15.5.27)._
 
-_Last updated: October 13, 2026 (P0 tasks 1 and 2 done)._
+_Last updated: October 13, 2026 (P0 tasks 1, 2 and 3 done)._
 
 This document records the current state of the CybSync Attendance System and lists the work still needed, **from highest to lowest priority**. Each task says where the problem is and what "done" looks like, so it can be picked up as an issue or PR on its own.
 
@@ -18,11 +18,19 @@ The other files in this folder (`*_BACKEND_INTEGRATION.md`) describe the API eac
 | UI pages | ✅ All 10 pages are designed and render on desktop |
 | Backend API | ⚠️ 16 routes exist, but some are missing or incomplete |
 | Frontend ↔ backend | ❌ **Nothing is connected yet.** Every page shows hardcoded demo data, and every button only logs to the console or shows a "Demo mode" alert. |
-| Security | ⚠️ API routes now require login with the right role (task 1). Student login still needs a real credential (task 3). |
+| Security | ⚠️ API routes require login with the right role, and students sign in with their school Google account + Student ID. Council accounts can't be created yet (task 4). |
 | Mobile layout | ⚠️ Two dashboard pages scroll sideways on phones |
 | Tests | ❌ None |
 
 **In short:** the site looks finished, but it doesn't work yet. The most important work is (1) closing the security holes in the API and (2) connecting each page to its API route.
+
+---
+
+## Product decisions
+
+- **Student accounts are view-and-report only.** Students can see their own attendance and submit reports (excuse letters, or discrepancies they noticed in their record). They **cannot** check themselves in to events.
+- **Attendance is recorded only by the council's RFID scanner** (`POST /api/attendance/scan`).
+- **Students log in with their school Google account + Student ID** (task 3). Both must belong to the same student.
 
 ---
 
@@ -33,7 +41,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 **🔴 P0: Critical**
 - [x] 1. Protect the council/admin API routes
 - [x] 2. Stop trusting a client-sent `x-user-id` header
-- [ ] 3. Decide how students prove who they are
+- [x] 3. Decide how students prove who they are
 - [ ] 4. Create the first council account
 
 **🟠 P1: High**
@@ -97,7 +105,20 @@ The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/s
 
 > **Status:** Done on `develop-cybsync`. `src/middleware.ts` now deletes any client-sent `x-user-id` and `x-user-role` headers on **every** `/api` request, including the public login routes, and only sets them again from a verified token. API routes can trust these headers.
 
-### 3. Decide how students prove who they are
+### 3. Decide how students prove who they are ✅ Done
+
+> **Decision:** students sign in with their **school Google account and their Student ID**. The login only succeeds if the Student ID's record has the same email as the Google account.
+>
+> **Status:** Done on `develop-cybsync`.
+> - `src/lib/google.ts` verifies the Google ID token (signature, our client ID, verified email, school domain via `ALLOWED_EMAIL_DOMAIN`).
+> - `src/app/api/auth/student-login/route.ts` now requires `{ studentId, credential }` and matches the Student ID to the Google email.
+> - `src/app/student-login/page.tsx` has a Student ID field plus a "Sign in with Google" button, and is connected to the API.
+> - Student self check-in was removed (`/api/student/check-in` and the event-code box on the student attendance page), per the product decision above.
+> - Setup steps (Google Cloud client ID, environment variables): `docs/STUDENT_LOGIN_BACKEND_INTEGRATION.md`.
+>
+> **Before students can log in:** create the Google client ID, set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` and `ALLOWED_EMAIL_DOMAIN` in Vercel, and make sure every `Student` record's `email` is the student's school Google email.
+>
+> _Original description:_
 
 `/api/auth/student-login` only asks for a **Student ID**, with no password. Student IDs are not secret (they're printed on IDs and on the attendance table), so anyone who knows one can log in as that student and check them in to events.
 
@@ -116,7 +137,7 @@ The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/s
 ### 5. Connect the login pages and keep users logged in
 
 - **Council login (`src/app/page.tsx`):** `handleSubmit` only does `console.log`. Call `/api/auth/council-login`, store the token, and redirect to `/dashboard`. Show an error message on wrong credentials.
-- **Student login (`src/app/student-login/page.tsx`):** the API call is commented out, and the page shows a "Demo mode" alert. Uncomment and finish it.
+- ~~**Student login (`src/app/student-login/page.tsx`)**~~: done as part of task 3 (Google sign-in + Student ID).
 - **Sign out (`src/components/Sidebar.tsx`):** `handleSignOut` does nothing. Clear the token and redirect to `/`. (`StudentSidebar.tsx` already clears storage.)
 - **Protect the pages:** `/dashboard/*` and `/student-dashboard/*` open for anyone. Redirect to the login page when there is no valid token.
 - **Recommended:** store the token in an `httpOnly` cookie set by the login route instead of `localStorage`. That makes it safer against XSS and lets the middleware protect pages as well as API routes.
@@ -136,12 +157,17 @@ The student routes (`/api/student/attendance`, `/api/student/dashboard`, `/api/s
 | Page | File | API to call | Notes |
 | --- | --- | --- | --- |
 | Student dashboard | `src/app/student-dashboard/page.tsx` | `GET /api/student/dashboard` | |
-| Student attendance / check-in | `src/app/student-dashboard/attendance/page.tsx` | `GET /api/student/attendance`, `POST /api/student/check-in` | |
+| Student attendance | `src/app/student-dashboard/attendance/page.tsx` | `GET /api/student/attendance` | Read-only. Check-in was removed. |
 | Student reports | `src/app/student-dashboard/reports/page.tsx` | `POST /api/student/reports`, `GET /api/student/reports/history` | **Neither route exists yet.** Create both. |
+
+Student reports are for two things: **excuse letters** (for an event they missed or were late to) and **attendance discrepancies** (a record that's wrong or missing). To support that:
+- add a `type` field to `Report` (`"excuse"` or `"discrepancy"`) and let the student pick it on the form;
+- link each report to the student from the login token (not from the form) and to the event or attendance record it's about;
+- when the council accepts an excuse, set that attendance record's status to `excused`; when they accept a discrepancy, they correct the record.
 
 ### 8. Add event management
 
-Attendance depends on events, but there is no way to create one, start it (`upcoming → active`), end it (`active → past`) or set its check-in `code`. Council members also can't see or approve the event requests submitted from the Request page.
+Attendance depends on events, but there is no way to create one, start it (`upcoming → active`) or end it (`active → past`). (The `Event.code` field was only for student check-in, which was removed, so it's no longer needed.) Council members also can't see or approve the event requests submitted from the Request page.
 
 **Done when:** council users can list, approve and reject `EventRequest`s, and an approved request becomes an `Event` they can start and end from the UI.
 
@@ -160,10 +186,10 @@ The RFID scanner looks students up by `rfid` or `studentId`, but there's no way 
 ## 🟡 P2: Medium (correctness and quality)
 
 ### 11. Calculate "late" correctly
-Both `/api/attendance/scan` and `/api/student/check-in` always save `status: "on-time"`, so the late-attendance numbers on the student dashboard will always be 0. Compare the check-in time with the event's `startTime` (plus a grace period).
+`/api/attendance/scan` always saves `status: "on-time"`, so the late-attendance numbers on the student dashboard will always be 0. Compare the check-in time with the event's `startTime` (plus a grace period).
 
 ### 12. Use the AM/PM and Sign In/Sign Out fields consistently
-Student check-in always records `type: "AM"` and `action: "Sign In"`. Decide whether events have AM/PM sessions and sign-out, and make the scanner and student check-in follow the same rules.
+The RFID scanner accepts any `type` and `action` text from the page. Decide whether events have AM/PM sessions and sign-out, and validate these fields in `/api/attendance/scan` (e.g. `type` must be `AM` or `PM`, `action` must be `Sign In` or `Sign Out`).
 
 ### 13. Finish the dashboard statistics
 - `/api/dashboard` returns `courseB: 0` for every year, so the "by Year and Course" chart can't show real data.
@@ -189,7 +215,7 @@ Tested at 390 px width (iPhone 14 size):
 Add rate limiting to `/api/auth/council-login` and `/api/auth/student-login` (for example, a limit per IP using Vercel's firewall or a small in-database counter).
 
 ### 19. Add tests
-There are no tests. Start with the API routes (logins, middleware auth, scan, check-in) using Vitest and an in-memory MongoDB, and run `npm run lint` and `npm run build` on every PR with GitHub Actions.
+There are no tests. Start with the API routes (logins, middleware auth, RFID scan, student reports) using Vitest and an in-memory MongoDB, and run `npm run lint` and `npm run build` on every PR with GitHub Actions.
 
 ---
 
@@ -208,7 +234,7 @@ There are no tests. Start with the API routes (logins, middleware auth, scan, ch
 ## Suggested order of work
 
 1. **P0 tasks ~~1~~, ~~2~~ and 4.** These are small, contained changes, and the site shouldn't be shared until they're done.
-2. **P0 task 3 and P1 task 5.** Decide how students log in, then connect both login flows and protect the pages.
+2. **~~P0 task 3~~ and P1 task 5.** Student login is done; connect council login and sign-out, and protect the pages.
 3. **P1 tasks 8 and 10.** Without events and students in the database, the rest of the app has no data to show.
 4. **P1 tasks 6, 7 and 9.** Connect the pages one at a time.
 5. P2, then P3.

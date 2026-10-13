@@ -2,6 +2,7 @@
 
 import StudentSidebar from '@/components/StudentSidebar';
 import StatCard from '@/components/StatCard';
+import Link from 'next/link';
 import { useState } from 'react';
 
 // Types for backend integration
@@ -24,9 +25,6 @@ interface StudentAttendanceData {
 }
 
 export default function StudentAttendance() {
-  const [eventCode, setEventCode] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   // Backend integration: Replace with API data
   // Example API call:
   // useEffect(() => {
@@ -139,57 +137,6 @@ export default function StudentAttendance() {
       },
     ],
   });
-
-  // Handle event check-in
-  const handleCheckIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!eventCode.trim()) {
-      alert('Please enter an event code');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    // Backend integration point
-    console.log('Checking in to event:', eventCode);
-
-    // Example API call:
-    // try {
-    //   const token = localStorage.getItem('studentToken') || sessionStorage.getItem('studentToken');
-    //   const response = await fetch('/api/student/check-in', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${token}`,
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({ eventCode }),
-    //   });
-    //
-    //   const data = await response.json();
-    //
-    //   if (response.ok) {
-    //     alert(`Successfully checked in to ${data.eventName}!`);
-    //     setEventCode('');
-    //     // Refresh attendance data
-    //     // fetchAttendanceData();
-    //   } else {
-    //     alert(data.message || 'Failed to check in. Please verify the event code.');
-    //   }
-    // } catch (error) {
-    //   console.error('Check-in error:', error);
-    //   alert('An error occurred. Please try again.');
-    // } finally {
-    //   setIsSubmitting(false);
-    // }
-
-    // Temporary success message (remove when API is connected)
-    setTimeout(() => {
-      alert('Check-in successful! (Demo mode - connect to backend)');
-      setEventCode('');
-      setIsSubmitting(false);
-    }, 1000);
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -321,25 +268,17 @@ export default function StudentAttendance() {
             </div>
           </div>
 
-          {/* Event Check-In Section */}
-          <div className="flex items-center gap-4">
-            <form onSubmit={handleCheckIn} className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-              <input
-                type="text"
-                value={eventCode}
-                onChange={(e) => setEventCode(e.target.value)}
-                placeholder="Enter Event"
-                disabled={isSubmitting}
-                className="flex-1 px-4 sm:px-6 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              />
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-8 sm:px-12 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-xl transition-colors shadow-lg disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? 'Checking In...' : 'Enter'}
-              </button>
-            </form>
+          {/* Report a problem */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 bg-white border border-gray-200 rounded-2xl">
+            <p className="text-sm text-gray-600">
+              Attendance is recorded by the council&apos;s RFID scanner. Have an excuse letter, or see a mistake in your record?
+            </p>
+            <Link
+              href="/student-dashboard/reports"
+              className="shrink-0 text-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-lg"
+            >
+              Submit a Report
+            </Link>
           </div>
         </div>
       </main>
