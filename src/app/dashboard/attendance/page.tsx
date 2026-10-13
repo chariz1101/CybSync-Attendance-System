@@ -10,11 +10,12 @@ import { formatClock, formatDateTime, formatEventWhen, yearLabel } from '@/lib/f
 import { ACTIONS, SESSIONS, type toRecordJson } from '@/lib/attendance';
 import type { toEventJson } from '@/lib/events';
 import type { EventStats } from '@/lib/eventStats';
+import { lateNote } from '@/lib/late';
 
 type EventJson = ReturnType<typeof toEventJson>;
 type RecordJson = ReturnType<typeof toRecordJson>;
 type RecordsData = EventStats & { event: EventJson; records: RecordJson[] };
-type ScanResult = { ok: boolean; message: string };
+type ScanResult = { ok: boolean; late?: boolean; message: string };
 
 export default function Attendance() {
   const [events, setEvents] = useState<EventJson[] | null>(null);
@@ -77,7 +78,11 @@ export default function Attendance() {
         json: { rfid: value, eventId, type: session, action },
       });
       const r = res.record;
-      setLastScan({ ok: true, message: `${r.name} (${r.studentId}) · ${session} ${action} at ${formatClock(r.timestamp)}` });
+      setLastScan({
+        ok: true,
+        late: r.status === 'late',
+        message: `${r.name} (${r.studentId}) · ${session} ${action} at ${formatClock(r.timestamp)}${r.status === 'late' ? ' · LATE' : ''}`,
+      });
       setData((d) => (d ? { ...d, records: [r, ...d.records] } : d));
       loadRecords(); // refresh the stats
     } catch (err) {
@@ -181,7 +186,11 @@ export default function Attendance() {
                     <p
                       role="status"
                       className={`text-base font-medium rounded-xl px-4 py-3 border ${
-                        lastScan.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'
+                        !lastScan.ok
+                          ? 'bg-red-50 border-red-200 text-red-800'
+                          : lastScan.late
+                            ? 'bg-yellow-50 border-yellow-300 text-yellow-900'
+                            : 'bg-green-50 border-green-200 text-green-800'
                       }`}
                     >
                       {lastScan.ok ? '✓ ' : '✗ '}
@@ -189,6 +198,7 @@ export default function Attendance() {
                     </p>
                   )}
                   <p className="text-xs text-gray-500">
+                    {lateNote(data.event) ? `${lateNote(data.event)}. ` : 'This event has no start time, so every scan counts as on time. '}
                     USB RFID readers type the card number and press Enter automatically. Keep this page open and the box focused.
                   </p>
                 </Card>

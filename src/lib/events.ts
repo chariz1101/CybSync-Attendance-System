@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_GRACE_MINUTES } from "@/lib/late";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^\d{2}:\d{2}$/;
@@ -10,6 +11,8 @@ export const eventInputSchema = z
     endDate: z.string().regex(DATE).optional().or(z.literal("")),
     startTime: z.string().regex(TIME).optional().or(z.literal("")),
     endTime: z.string().regex(TIME).optional().or(z.literal("")),
+    pmStartTime: z.string().regex(TIME).optional().or(z.literal("")),
+    graceMinutes: z.coerce.number().int().min(0, "Grace period can't be negative").max(240, "Grace period is too long").optional(),
     location: z.string().trim().optional(),
     description: z.string().trim().optional(),
   })
@@ -26,6 +29,8 @@ type EventDoc = {
   endDate?: string;
   startTime?: string;
   endTime?: string;
+  pmStartTime?: string;
+  graceMinutes?: number;
   location?: string;
   description?: string;
   startedAt?: Date;
@@ -42,6 +47,8 @@ export function toEventJson(e: EventDoc) {
     endDate: e.endDate ?? "",
     startTime: e.startTime ?? "",
     endTime: e.endTime ?? "",
+    pmStartTime: e.pmStartTime ?? "",
+    graceMinutes: e.graceMinutes ?? DEFAULT_GRACE_MINUTES,
     location: e.location ?? "",
     description: e.description ?? "",
     startedAt: e.startedAt?.toISOString() ?? null,

@@ -61,7 +61,7 @@ Tick a box (`- [x]`) in the PR that finishes the task. Details for each task are
 - [x] 10. Add student and RFID management
 
 **🟡 P2: Medium**
-- [ ] 11. Calculate "late" correctly
+- [x] 11. Calculate "late" correctly
 - [x] 12. Use the AM/PM and Sign In/Sign Out fields consistently
 - [x] 13. Finish the dashboard statistics
 - [x] 14. Validate IDs and handle errors in every route
@@ -230,7 +230,11 @@ The RFID scanner looks students up by `rfid` or `studentId`, but there's no way 
 
 ## 🟡 P2: Medium (correctness and quality)
 
-### 11. Calculate "late" correctly
+### 11. Calculate "late" correctly ✅ Done
+
+> **Status:** Done. A Sign In after the session's start + grace period (default 15 min, per event; separate optional afternoon start for PM) is marked late, compared in `SCHOOL_TIMEZONE` (default `Asia/Manila`). Logic: `src/lib/late.ts`. See `docs/EVENTS_AND_ATTENDANCE.md`.
+
+> _Original description:_
 `/api/attendance/scan` always saves `status: "on-time"`, so the late-attendance numbers on the student dashboard will always be 0. Compare the check-in time with the event's `startTime` (plus a grace period).
 
 ### 12. Use the AM/PM and Sign In/Sign Out fields consistently ✅ Done

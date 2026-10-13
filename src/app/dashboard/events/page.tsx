@@ -17,6 +17,7 @@ import {
 } from '@/components/ui';
 import { api } from '@/lib/api';
 import { formatDateTime, formatEventWhen } from '@/lib/format';
+import { lateNote } from '@/lib/late';
 import { useCurrentUser } from '@/lib/useCurrentUser';
 import type { toEventJson, toRequestJson } from '@/lib/events';
 
@@ -99,6 +100,7 @@ export default function EventsPage() {
           {e.location && ` · ${e.location}`}
         </p>
         {e.description && <p className="text-sm text-gray-500 mt-1">{e.description}</p>}
+        {lateNote(e) && <p className="text-xs text-gray-500 mt-1">{lateNote(e)}</p>}
       </div>
       <div className="flex flex-wrap gap-2 shrink-0">
         {e.status === 'upcoming' && (
@@ -288,6 +290,8 @@ function EventFormModal({ event, onClose, onSaved }: { event: EventJson | null; 
     startTime: event?.startTime ?? '',
     endDate: event?.endDate ?? '',
     endTime: event?.endTime ?? '',
+    pmStartTime: event?.pmStartTime ?? '',
+    graceMinutes: String(event?.graceMinutes ?? 15),
     location: event?.location ?? '',
     description: event?.description ?? '',
   });
@@ -328,6 +332,14 @@ function EventFormModal({ event, onClose, onSaved }: { event: EventJson | null; 
           </Field>
           <Field label="End time">
             <input type="time" value={form.endTime} onChange={set('endTime')} className={inputClass} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Afternoon start" hint="Only if there's a separate PM sign-in">
+            <input type="time" value={form.pmStartTime} onChange={set('pmStartTime')} className={inputClass} />
+          </Field>
+          <Field label="Grace period (minutes)" hint="Sign-ins after start + this are late">
+            <input type="number" min={0} max={240} value={form.graceMinutes} onChange={set('graceMinutes')} required className={inputClass} />
           </Field>
         </div>
         <Field label="Location">
